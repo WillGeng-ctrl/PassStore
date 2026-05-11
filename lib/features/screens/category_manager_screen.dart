@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/category.dart';
+import 'passstore_dialog.dart';
 
 class CategoryManagerScreen extends StatelessWidget {
   const CategoryManagerScreen({
@@ -147,7 +148,7 @@ class CategoryManagerScreen extends StatelessWidget {
         void submit() => Navigator.pop(context, controller.text);
 
         return AlertDialog(
-          title: Text(title),
+          title: PassStoreDialogTitle(title),
           content: TextField(
             controller: controller,
             autofocus: true,
@@ -155,12 +156,13 @@ class CategoryManagerScreen extends StatelessWidget {
             onSubmitted: (_) => submit(),
             decoration: const InputDecoration(labelText: '分类名称'),
           ),
+          actionsPadding: EdgeInsets.zero,
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('取消'),
+            PassStoreDialogActions(
+              primaryLabel: '保存',
+              onPrimary: submit,
+              onCancel: () => Navigator.pop(context),
             ),
-            FilledButton(onPressed: submit, child: const Text('保存')),
           ],
         );
       },

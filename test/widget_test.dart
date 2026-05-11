@@ -242,6 +242,39 @@ void main() {
     expect(addedName, '工作');
   });
 
+  testWidgets('category name dialog uses compact title and equal actions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CategoryManagerScreen(
+          categories: Category.builtIns(DateTime.utc(2026, 5, 12)),
+          onAdd: (_) {},
+          onRename: (_, _) {},
+          onDelete: (_) {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, '新建自定义分类'));
+    await tester.pumpAndSettle();
+
+    final title = tester.widget<Text>(find.text('新建分类'));
+    final save = find.widgetWithText(FilledButton, '保存');
+    final cancel = find.widgetWithText(OutlinedButton, '取消');
+
+    final saveSize = tester.getSize(save);
+    final cancelSize = tester.getSize(cancel);
+    final saveLeft = tester.getTopLeft(save).dx;
+    final cancelLeft = tester.getTopLeft(cancel).dx;
+
+    expect(title.style?.fontSize, 22);
+    expect(saveSize.width, cancelSize.width);
+    expect(saveSize.height, cancelSize.height);
+    expect(cancelLeft, greaterThan(saveLeft));
+  });
+
   testWidgets('subpage back buttons leave leading margin', (tester) async {
     Future<double> backButtonLeftFor(Widget child) async {
       await tester.pumpWidget(MaterialApp(home: child));
