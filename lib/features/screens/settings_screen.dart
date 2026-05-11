@@ -169,7 +169,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _compactPreferenceRow(
                   title: '自动锁定时间',
                   subtitle: '无操作后自动回到解锁页',
-                  trailing: _autoLockDropdown(context),
+                  trailing: _autoLockSelector(context),
                 ),
                 if (_preferencesMessage.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -219,7 +219,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
                 SizedBox(height: 8),
-                Text('版本号：0.1.0+1'),
+                Text('版本号：1.0.0.0'),
                 SizedBox(height: 6),
                 Text('联系作者：https://github.com/WillGeng-ctrl/PassStore/issues'),
               ]),
@@ -354,54 +354,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(width: 16),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0xffcbd5e1)),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: trailing,
-            ),
-          ),
+          trailing,
         ],
       ),
     );
   }
 
-  Widget _autoLockDropdown(BuildContext context) {
-    return DropdownButtonHideUnderline(
-      child: DropdownButton<int>(
-        value: _autoLockMinutes,
-        isDense: true,
-        itemHeight: kMinInteractiveDimension,
-        iconSize: 18,
-        style: Theme.of(
-          context,
-        ).textTheme.bodyMedium?.copyWith(color: const Color(0xff0f172a)),
-        items: _autoLockOptions.entries
-            .map(
-              (entry) =>
-                  DropdownMenuItem(value: entry.key, child: Text(entry.value)),
-            )
-            .toList(),
-        onChanged: _preferencesBusy
-            ? null
-            : (value) {
-                if (value == null) return;
-                setState(() => _autoLockMinutes = value);
-                _savePreferences();
-              },
+  Widget _autoLockSelector(BuildContext context) {
+    return SegmentedButton<int>(
+      showSelectedIcon: false,
+      style: ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 12),
+        ),
+        textStyle: WidgetStatePropertyAll(
+          Theme.of(context).textTheme.bodyMedium,
+        ),
       ),
+      segments: _autoLockOptions.entries
+          .map(
+            (entry) =>
+                ButtonSegment<int>(value: entry.key, label: Text(entry.value)),
+          )
+          .toList(),
+      selected: {_autoLockMinutes},
+      onSelectionChanged: _preferencesBusy
+          ? null
+          : (selected) {
+              final value = selected.first;
+              setState(() => _autoLockMinutes = value);
+              _savePreferences();
+            },
     );
   }
 }
 
 const _autoLockOptions = <int, String>{
-  0: '永不锁定',
-  5: '5 分钟',
-  15: '15 分钟',
-  30: '30 分钟',
+  0: '永不',
+  5: '5 分',
+  15: '15 分',
+  30: '30 分',
   60: '1 小时',
 };

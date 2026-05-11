@@ -869,14 +869,12 @@ void main() {
 
     expect(find.text('剪贴板清空时间'), findsNothing);
     expect(find.byType(DropdownButtonFormField<int>), findsNothing);
+    expect(find.byType(DropdownButton<int>), findsNothing);
 
-    final autoLockDropdown = find.byType(DropdownButton<int>);
-    expect(autoLockDropdown, findsOneWidget);
-    expect(tester.getSize(autoLockDropdown).height, lessThanOrEqualTo(40));
+    final autoLockControl = find.byType(SegmentedButton<int>);
+    expect(autoLockControl, findsOneWidget);
 
-    await tester.tap(autoLockDropdown);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('永不锁定').last);
+    await tester.tap(find.text('永不'));
     await tester.pumpAndSettle();
 
     expect(saved.last.autoLockMinutes, 0);
@@ -953,7 +951,7 @@ void main() {
       ),
     );
 
-    expect(find.text('版本号：0.1.0+1'), findsOneWidget);
+    expect(find.text('版本号：1.0.0.0'), findsOneWidget);
     expect(find.text('联系作者：https://github.com/WillGeng-ctrl/PassStore/issues'), findsOneWidget);
   });
 }
