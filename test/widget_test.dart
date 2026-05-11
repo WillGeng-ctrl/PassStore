@@ -6,6 +6,7 @@ import 'package:passstore/core/services/vault_service.dart';
 import 'package:passstore/data/webdav_settings.dart';
 import 'package:passstore/features/app_shell.dart';
 import 'package:passstore/features/screens/change_master_password_dialog.dart';
+import 'package:passstore/features/screens/category_manager_screen.dart';
 import 'package:passstore/features/screens/create_vault_screen.dart';
 import 'package:passstore/features/screens/edit_entry_dialog.dart';
 import 'package:passstore/features/screens/main_vault_screen.dart';
@@ -162,6 +163,58 @@ void main() {
 
     expect((entryTile.leading! as Icon).icon, Icons.public);
     expect(find.byType(Chip), findsNothing);
+  });
+
+  testWidgets('category manager can add a custom category with save', (
+    tester,
+  ) async {
+    String? addedName;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CategoryManagerScreen(
+          categories: Category.builtIns(DateTime.utc(2026, 5, 12)),
+          onAdd: (name) => addedName = name,
+          onRename: (_, _) {},
+          onDelete: (_) {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, '新建分类'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '工作');
+    await tester.tap(find.widgetWithText(FilledButton, '保存'));
+    await tester.pumpAndSettle();
+
+    expect(addedName, '工作');
+  });
+
+  testWidgets('category manager can add a custom category with Enter', (
+    tester,
+  ) async {
+    String? addedName;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CategoryManagerScreen(
+          categories: Category.builtIns(DateTime.utc(2026, 5, 12)),
+          onAdd: (name) => addedName = name,
+          onRename: (_, _) {},
+          onDelete: (_) {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, '新建分类'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '工作');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(addedName, '工作');
   });
 
   testWidgets('unconfigured WebDAV settings show unconfigured sync status', (

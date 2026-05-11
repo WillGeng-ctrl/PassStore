@@ -123,24 +123,27 @@ class CategoryManagerScreen extends StatelessWidget {
     final controller = TextEditingController(text: initial);
     return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '分类名称'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+      builder: (context) {
+        void submit() => Navigator.pop(context, controller.text);
+
+        return AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => submit(),
+            decoration: const InputDecoration(labelText: '分类名称'),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            FilledButton(onPressed: submit, child: const Text('保存')),
+          ],
+        );
+      },
     );
   }
 }
