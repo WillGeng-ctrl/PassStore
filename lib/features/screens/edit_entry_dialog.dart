@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/models/category.dart';
 import '../../core/models/vault_entry.dart';
+import 'passstore_dialog.dart';
 
 class EditEntryDialog extends StatefulWidget {
   const EditEntryDialog({
@@ -53,7 +54,7 @@ class _EditEntryDialogState extends State<EditEntryDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.entry == null ? '新建条目' : '编辑条目'),
+      title: PassStoreDialogTitle(widget.entry == null ? '新建条目' : '编辑条目'),
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(
@@ -89,12 +90,13 @@ class _EditEntryDialogState extends State<EditEntryDialog> {
           ),
         ),
       ),
+      actionsPadding: EdgeInsets.zero,
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+        PassStoreDialogActions(
+          primaryLabel: '保存',
+          onPrimary: _save,
+          onCancel: () => Navigator.pop(context),
         ),
-        FilledButton(onPressed: _save, child: const Text('保存')),
       ],
     );
   }

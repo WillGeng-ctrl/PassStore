@@ -5,6 +5,7 @@ import 'package:passstore/core/models/vault_entry.dart';
 import 'package:passstore/core/services/vault_service.dart';
 import 'package:passstore/data/webdav_settings.dart';
 import 'package:passstore/features/app_shell.dart';
+import 'package:passstore/features/screens/change_master_password_dialog.dart';
 import 'package:passstore/features/screens/create_vault_screen.dart';
 import 'package:passstore/features/screens/edit_entry_dialog.dart';
 import 'package:passstore/features/screens/main_vault_screen.dart';
@@ -297,6 +298,65 @@ void main() {
 
     expect(find.byType(DropdownButtonFormField<String>), findsNothing);
     expect(find.byType(ChoiceChip), findsNWidgets(4));
+  });
+
+  testWidgets('entry dialog uses compact title and equal action buttons', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 5, 12);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditEntryDialog(
+            categories: Category.builtIns(now),
+            initialCategoryId: Category.websiteId,
+          ),
+        ),
+      ),
+    );
+
+    final title = tester.widget<Text>(find.text('新建条目'));
+    final saveSize = tester.getSize(find.widgetWithText(FilledButton, '保存'));
+    final cancelSize = tester.getSize(
+      find.widgetWithText(OutlinedButton, '取消'),
+    );
+    final saveLeft = tester
+        .getTopLeft(find.widgetWithText(FilledButton, '保存'))
+        .dx;
+    final cancelLeft = tester
+        .getTopLeft(find.widgetWithText(OutlinedButton, '取消'))
+        .dx;
+
+    expect(title.style?.fontSize, 22);
+    expect(saveSize.height, cancelSize.height);
+    expect(saveSize.width, cancelSize.width);
+    expect(cancelLeft, greaterThan(saveLeft));
+  });
+
+  testWidgets('change master password dialog uses the shared action layout', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: ChangeMasterPasswordDialog())),
+    );
+
+    final confirmSize = tester.getSize(
+      find.widgetWithText(FilledButton, '确认修改'),
+    );
+    final cancelSize = tester.getSize(
+      find.widgetWithText(OutlinedButton, '取消'),
+    );
+    final confirmLeft = tester
+        .getTopLeft(find.widgetWithText(FilledButton, '确认修改'))
+        .dx;
+    final cancelLeft = tester
+        .getTopLeft(find.widgetWithText(OutlinedButton, '取消'))
+        .dx;
+
+    expect(confirmSize.height, cancelSize.height);
+    expect(confirmSize.width, cancelSize.width);
+    expect(cancelLeft, greaterThan(confirmLeft));
   });
 
   testWidgets('WebDAV test failure appears below the test button', (

@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 
+import 'passstore_dialog.dart';
+
 class ChangeMasterPasswordDialog extends StatefulWidget {
   const ChangeMasterPasswordDialog({super.key});
 
   @override
-  State<ChangeMasterPasswordDialog> createState() => _ChangeMasterPasswordDialogState();
+  State<ChangeMasterPasswordDialog> createState() =>
+      _ChangeMasterPasswordDialogState();
 }
 
-class _ChangeMasterPasswordDialogState extends State<ChangeMasterPasswordDialog> {
+class _ChangeMasterPasswordDialogState
+    extends State<ChangeMasterPasswordDialog> {
   final _current = TextEditingController();
   final _next = TextEditingController();
   final _confirm = TextEditingController();
@@ -24,17 +28,38 @@ class _ChangeMasterPasswordDialogState extends State<ChangeMasterPasswordDialog>
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('修改主密码'),
+      title: const PassStoreDialogTitle('修改主密码'),
       content: SizedBox(
         width: 460,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: _current, obscureText: true, decoration: const InputDecoration(labelText: '当前主密码', border: OutlineInputBorder())),
+            TextField(
+              controller: _current,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: '当前主密码',
+                border: OutlineInputBorder(),
+              ),
+            ),
             const SizedBox(height: 12),
-            TextField(controller: _next, obscureText: true, decoration: const InputDecoration(labelText: '新主密码', border: OutlineInputBorder())),
+            TextField(
+              controller: _next,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: '新主密码',
+                border: OutlineInputBorder(),
+              ),
+            ),
             const SizedBox(height: 12),
-            TextField(controller: _confirm, obscureText: true, decoration: const InputDecoration(labelText: '确认新主密码', border: OutlineInputBorder())),
+            TextField(
+              controller: _confirm,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: '确认新主密码',
+                border: OutlineInputBorder(),
+              ),
+            ),
             const SizedBox(height: 12),
             const Text('修改主密码会重新加密本地密码库，请确保修改前已完成同步或备份。'),
             if (_error != null) ...[
@@ -44,9 +69,13 @@ class _ChangeMasterPasswordDialogState extends State<ChangeMasterPasswordDialog>
           ],
         ),
       ),
+      actionsPadding: EdgeInsets.zero,
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-        FilledButton(onPressed: _submit, child: const Text('确认修改')),
+        PassStoreDialogActions(
+          primaryLabel: '确认修改',
+          onPrimary: _submit,
+          onCancel: () => Navigator.pop(context),
+        ),
       ],
     );
   }
@@ -60,7 +89,10 @@ class _ChangeMasterPasswordDialogState extends State<ChangeMasterPasswordDialog>
       setState(() => _error = '两次输入的新主密码不一致');
       return;
     }
-    Navigator.pop(context, ChangeMasterPasswordDraft(current: _current.text, next: _next.text));
+    Navigator.pop(
+      context,
+      ChangeMasterPasswordDraft(current: _current.text, next: _next.text),
+    );
   }
 }
 
