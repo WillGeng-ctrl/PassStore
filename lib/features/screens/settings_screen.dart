@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../data/app_preferences.dart';
@@ -38,7 +40,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _account;
   final _password = TextEditingController();
   late int _autoLockMinutes;
-  String _testMessage = '';
+  _ConnectionTestStatus _testStatus = _ConnectionTestStatus.idle;
+  Timer? _testStatusResetTimer;
   String _saveMessage = '';
   String _backupMessage = '';
   bool _busy = false;
@@ -55,6 +58,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
+    _testStatusResetTimer?.cancel();
     _url.dispose();
     _account.dispose();
     _password.dispose();
@@ -119,12 +123,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _busy ? null : _test,
-                        child: const Text('测试连接'),
-                      ),
-                    ),
+                    Expanded(child: _testConnectionButton()),
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
@@ -134,15 +133,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ],
                 ),
-                if (_testMessage.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _testMessage,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ],
                 if (_saveMessage.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
@@ -277,28 +267,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _test() async {
+    _testStatusResetTimer?.cancel();
     setState(() {
       _busy = true;
-      _testMessage = '';
+      _testStatus = _ConnectionTestStatus.testing;
       _saveMessage = '';
     });
-    final message = await widget.onTestWebDav(
-      _url.text,
-      _account.text,
-      _password.text,
-    );
+    final message = await widget
+        .onTestWebDav(_url.text, _account.text, _password.text)
+        .catchError((_) => '连接失败');
     if (mounted) {
       setState(() {
-        _testMessage = message;
+        _testStatus = message == '连接成功'
+            ? _ConnectionTestStatus.success
+            : _ConnectionTestStatus.failure;
         _busy = false;
       });
+      _scheduleTestStatusReset();
     }
   }
 
   Future<void> _save() async {
+    _testStatusResetTimer?.cancel();
     setState(() {
       _busy = true;
-      _testMessage = '';
+      _testStatus = _ConnectionTestStatus.idle;
       _saveMessage = '';
     });
     await widget.onSaveWebDav(_url.text, _account.text, _password.text);
@@ -308,6 +301,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _busy = false;
       });
     }
+  }
+
+  Widget _testConnectionButton() {
+    return OutlinedButton(
+      onPressed: _busy ? null : _test,
+      style: _testConnectionButtonStyle(),
+      child: Text(_testConnectionButtonLabel),
+    );
+  }
+
+  ButtonStyle? _testConnectionButtonStyle() {
+    final Color? color = switch (_testStatus) {
+      _ConnectionTestStatus.success => _connectionSuccessColor,
+      _ConnectionTestStatus.failure => _connectionFailureColor,
+      _ => null,
+    };
+
+    if (color == null) return null;
+
+    return OutlinedButton.styleFrom(
+      backgroundColor: color,
+      foregroundColor: Colors.white,
+      side: BorderSide(color: color),
+    );
+  }
+
+  String get _testConnectionButtonLabel {
+    return switch (_testStatus) {
+      _ConnectionTestStatus.testing => '测试中...',
+      _ConnectionTestStatus.success => '连接成功',
+      _ConnectionTestStatus.failure => '连接失败',
+      _ConnectionTestStatus.idle => '测试连接',
+    };
+  }
+
+  void _scheduleTestStatusReset() {
+    _testStatusResetTimer?.cancel();
+    _testStatusResetTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() => _testStatus = _ConnectionTestStatus.idle);
+    });
   }
 
   Widget _compactPreferenceRow({
@@ -382,3 +416,8 @@ const _autoLockOptions = <int, String>{
   30: '30 分',
   60: '1 小时',
 };
+
+const _connectionSuccessColor = Color(0xff079455);
+const _connectionFailureColor = Color(0xffdc2626);
+
+enum _ConnectionTestStatus { idle, testing, success, failure }

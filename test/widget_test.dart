@@ -752,7 +752,50 @@ void main() {
     expect(cancelLeft, greaterThan(confirmLeft));
   });
 
-  testWidgets('WebDAV test failure appears below the test button', (
+  testWidgets('WebDAV test success appears on the button and resets', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          initialSettings: WebDavSettings.empty,
+          initialPreferences: AppPreferences.defaults,
+          onSaveWebDav: (_, _, _) async {},
+          onTestWebDav: (_, _, _) async => '连接成功',
+          onSavePreferences: (_) async {},
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
+          onChangeMasterPassword: () async {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField).at(1), 'user@example.com');
+    await tester.enterText(find.byType(TextField).at(2), 'app-password');
+    await tester.tap(find.widgetWithText(OutlinedButton, '测试连接'));
+    await tester.pump();
+    await tester.pump();
+
+    final button = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '连接成功'),
+    );
+
+    expect(
+      button.style?.backgroundColor?.resolve(<WidgetState>{}),
+      const Color(0xff079455),
+    );
+
+    await tester.pump(const Duration(milliseconds: 2100));
+    await tester.pump();
+
+    expect(find.widgetWithText(OutlinedButton, '测试连接'), findsOneWidget);
+  });
+
+  testWidgets('WebDAV test failure appears on the button and resets', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 1000));
@@ -777,16 +820,23 @@ void main() {
     await tester.enterText(find.byType(TextField).at(1), 'user@example.com');
     await tester.enterText(find.byType(TextField).at(2), 'bad-app-password');
     await tester.tap(find.widgetWithText(OutlinedButton, '测试连接'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
 
-    final messageTop = tester.getTopLeft(find.text('连接失败 401')).dy;
-    final testButtonBottom = tester
-        .getBottomLeft(find.widgetWithText(OutlinedButton, '测试连接'))
-        .dy;
-    final securityTop = tester.getTopLeft(find.text('安全设置')).dy;
+    final button = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '连接失败'),
+    );
 
-    expect(messageTop, greaterThan(testButtonBottom));
-    expect(messageTop, lessThan(securityTop));
+    expect(find.text('连接失败 401'), findsNothing);
+    expect(
+      button.style?.backgroundColor?.resolve(<WidgetState>{}),
+      const Color(0xffdc2626),
+    );
+
+    await tester.pump(const Duration(milliseconds: 2100));
+    await tester.pump();
+
+    expect(find.widgetWithText(OutlinedButton, '测试连接'), findsOneWidget);
   });
 
   testWidgets('WebDAV settings save button is next to connection controls', (
