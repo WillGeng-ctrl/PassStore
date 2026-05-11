@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -11,11 +13,13 @@ class EditEntryDialog extends StatefulWidget {
     required this.categories,
     required this.initialCategoryId,
     this.entry,
+    this.clipboardClearSeconds = 30,
   });
 
   final List<Category> categories;
   final String initialCategoryId;
   final VaultEntry? entry;
+  final int clipboardClearSeconds;
 
   @override
   State<EditEntryDialog> createState() => _EditEntryDialogState();
@@ -142,16 +146,40 @@ class _EditEntryDialogState extends State<EditEntryDialog> {
               tooltip: '复制$label',
               icon: const Icon(Icons.copy_outlined),
               onPressed: () {
-                Clipboard.setData(ClipboardData(text: controller.text));
+                final copiedText = controller.text;
+                Clipboard.setData(ClipboardData(text: copiedText));
+                _scheduleClipboardClear(copiedText);
                 ScaffoldMessenger.of(
                   context,
-                ).showSnackBar(SnackBar(content: Text('$label已复制，稍后自动清空剪贴板')));
+                ).showSnackBar(SnackBar(content: Text(_copyMessage(label))));
               },
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _scheduleClipboardClear(String copiedText) {
+    final seconds = widget.clipboardClearSeconds;
+    if (seconds <= 0 || copiedText.isEmpty) return;
+    Timer(Duration(seconds: seconds), () async {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data?.text == copiedText) {
+        await Clipboard.setData(const ClipboardData(text: ''));
+      }
+    });
+  }
+
+  String _copyMessage(String label) {
+    final seconds = widget.clipboardClearSeconds;
+    if (seconds <= 0) return '$label已复制';
+    return '$label已复制，${_formatClipboardDelay(seconds)}后自动清空剪贴板';
+  }
+
+  String _formatClipboardDelay(int seconds) {
+    if (seconds >= 60 && seconds % 60 == 0) return '${seconds ~/ 60}分钟';
+    return '$seconds秒';
   }
 
   void _save() {

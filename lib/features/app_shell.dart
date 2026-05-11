@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import '../core/models/vault.dart';
 import '../core/models/vault_entry.dart';
 import '../core/services/vault_crypto.dart';
 import '../core/services/vault_service.dart';
+import '../data/app_preferences.dart';
 import '../data/webdav_settings.dart';
 import '../data/webdav_sync_service.dart';
 import 'screens/category_manager_screen.dart';
@@ -22,9 +24,13 @@ class AppShell extends StatefulWidget {
     required this.masterPassword,
     required this.encryptedPayload,
     required this.webDavSettings,
+    required this.preferences,
     required this.onVaultChanged,
     required this.onMasterPasswordChanged,
     required this.onSaveWebDav,
+    required this.onPreferencesChanged,
+    required this.onExportBackup,
+    required this.onImportBackup,
     required this.onLock,
   });
 
@@ -32,11 +38,15 @@ class AppShell extends StatefulWidget {
   final String masterPassword;
   final EncryptedVaultPayload? encryptedPayload;
   final WebDavSettings webDavSettings;
+  final AppPreferences preferences;
   final Future<void> Function(Vault vault) onVaultChanged;
   final Future<void> Function(String currentPassword, String nextPassword)
   onMasterPasswordChanged;
   final Future<void> Function(String url, String account, String appPassword)
   onSaveWebDav;
+  final Future<void> Function(AppPreferences preferences) onPreferencesChanged;
+  final Future<String> Function() onExportBackup;
+  final Future<String> Function() onImportBackup;
   final VoidCallback onLock;
 
   @override
@@ -46,11 +56,25 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   late Vault _vault = widget.vault;
   _ShellView _view = _ShellView.main;
+  Timer? _autoLockTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetAutoLockTimer();
+  }
 
   @override
   void didUpdateWidget(covariant AppShell oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.vault != widget.vault) _vault = widget.vault;
+    if (oldWidget.preferences != widget.preferences) _resetAutoLockTimer();
+  }
+
+  @override
+  void dispose() {
+    _autoLockTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -84,13 +108,24 @@ class _AppShellState extends State<AppShell> {
       ),
       _ShellView.settings => SettingsScreen(
         initialSettings: webDavSettings,
+        initialPreferences: widget.preferences,
         onSaveWebDav: widget.onSaveWebDav,
         onTestWebDav: _testWebDav,
+        onSavePreferences: widget.onPreferencesChanged,
+        onExportBackup: widget.onExportBackup,
+        onImportBackup: widget.onImportBackup,
         onChangeMasterPassword: _changeMasterPassword,
         onBack: () => setState(() => _view = _ShellView.main),
       ),
     };
-    return Scaffold(body: child);
+    return Scaffold(
+      body: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => _resetAutoLockTimer(),
+        onPointerMove: (_) => _resetAutoLockTimer(),
+        child: child,
+      ),
+    );
   }
 
   WebDavSettings _effectiveWebDavSettings() {
@@ -115,6 +150,7 @@ class _AppShellState extends State<AppShell> {
       builder: (context) => EditEntryDialog(
         categories: _vault.categories,
         initialCategoryId: categoryId,
+        clipboardClearSeconds: widget.preferences.clipboardClearSeconds,
       ),
     );
     if (draft == null) return;
@@ -138,6 +174,7 @@ class _AppShellState extends State<AppShell> {
         categories: _vault.categories,
         initialCategoryId: entry.categoryId,
         entry: entry,
+        clipboardClearSeconds: widget.preferences.clipboardClearSeconds,
       ),
     );
     if (draft == null) return;
@@ -245,6 +282,16 @@ class _AppShellState extends State<AppShell> {
   Future<void> _update(Vault vault) async {
     setState(() => _vault = vault);
     await widget.onVaultChanged(vault);
+  }
+
+  void _resetAutoLockTimer() {
+    _autoLockTimer?.cancel();
+    final delay = widget.preferences.autoLockDelay;
+    if (delay == null) return;
+    _autoLockTimer = Timer(delay, () {
+      if (!mounted) return;
+      widget.onLock();
+    });
   }
 
   String debugVaultJson() => jsonEncode(_vault.toJson());

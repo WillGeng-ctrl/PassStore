@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:passstore/core/models/category.dart';
 import 'package:passstore/core/models/vault_entry.dart';
 import 'package:passstore/core/services/vault_merge.dart';
 import 'package:passstore/core/services/vault_service.dart';
+import 'package:passstore/data/app_preferences.dart';
 import 'package:passstore/data/webdav_settings.dart';
 import 'package:passstore/features/app_shell.dart';
 import 'package:passstore/features/screens/change_master_password_dialog.dart';
@@ -415,8 +417,12 @@ void main() {
     final settingsLeft = await backButtonLeftFor(
       SettingsScreen(
         initialSettings: WebDavSettings.empty,
+        initialPreferences: AppPreferences.defaults,
         onSaveWebDav: (_, _, _) async {},
         onTestWebDav: (_, _, _) async => '连接成功',
+        onSavePreferences: (_) async {},
+        onExportBackup: () async => '备份已导出',
+        onImportBackup: () async => '已从备份恢复',
         onChangeMasterPassword: () async {},
         onBack: () {},
       ),
@@ -456,9 +462,13 @@ void main() {
           masterPassword: 'master-password',
           encryptedPayload: null,
           webDavSettings: WebDavSettings.empty,
+          preferences: AppPreferences.defaults,
           onVaultChanged: (_) async {},
           onMasterPasswordChanged: (_, _) async {},
           onSaveWebDav: (_, _, _) async {},
+          onPreferencesChanged: (_) async {},
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
           onLock: () {},
         ),
       ),
@@ -488,9 +498,13 @@ void main() {
           masterPassword: 'master-password',
           encryptedPayload: null,
           webDavSettings: WebDavSettings.empty,
+          preferences: AppPreferences.defaults,
           onVaultChanged: (_) async {},
           onMasterPasswordChanged: (_, _) async {},
           onSaveWebDav: (_, _, _) async {},
+          onPreferencesChanged: (_) async {},
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
           onLock: () {},
         ),
       ),
@@ -516,9 +530,13 @@ void main() {
             account: 'user@example.com',
             hasAppPassword: true,
           ),
+          preferences: AppPreferences.defaults,
           onVaultChanged: (_) async {},
           onMasterPasswordChanged: (_, _) async {},
           onSaveWebDav: (_, _, _) async {},
+          onPreferencesChanged: (_) async {},
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
           onLock: () {},
         ),
       ),
@@ -526,6 +544,39 @@ void main() {
 
     expect(find.text('未配置同步'), findsOneWidget);
     expect(find.text('已同步'), findsNothing);
+  });
+
+  testWidgets('app shell locks after the configured inactivity delay', (
+    tester,
+  ) async {
+    final vault = VaultService.createEmptyVault(now: DateTime.utc(2026, 5, 12));
+    var lockCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppShell(
+          vault: vault,
+          masterPassword: 'master-password',
+          encryptedPayload: null,
+          webDavSettings: WebDavSettings.empty,
+          preferences: const AppPreferences(
+            autoLockMinutes: 1,
+            clipboardClearSeconds: 30,
+          ),
+          onVaultChanged: (_) async {},
+          onMasterPasswordChanged: (_, _) async {},
+          onSaveWebDav: (_, _, _) async {},
+          onPreferencesChanged: (_) async {},
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
+          onLock: () => lockCount++,
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(minutes: 1, seconds: 1));
+
+    expect(lockCount, 1);
   });
 
   testWidgets('entry dialog shows password in plain text by default', (
@@ -560,6 +611,68 @@ void main() {
         .singleWhere((field) => field.decoration?.labelText == '密码');
 
     expect(passwordField.obscureText, isFalse);
+  });
+
+  testWidgets('entry copy clears clipboard after configured delay', (
+    tester,
+  ) async {
+    var clipboardText = '';
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          final data = (call.arguments as Map<Object?, Object?>);
+          clipboardText = data['text']! as String;
+          return null;
+        }
+        if (call.method == 'Clipboard.getData') {
+          return {'text': clipboardText};
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      );
+    });
+
+    final now = DateTime.utc(2026, 5, 11);
+    final entry = VaultEntry.create(
+      title: 'GitHub',
+      account: 'user@example.com',
+      password: 'plain-secret',
+      url: 'https://github.com',
+      notes: '',
+      categoryId: Category.websiteId,
+      now: now,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditEntryDialog(
+            categories: Category.builtIns(now),
+            initialCategoryId: Category.websiteId,
+            entry: entry,
+            clipboardClearSeconds: 1,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('复制密码'));
+    await tester.pump();
+
+    var data = await Clipboard.getData(Clipboard.kTextPlain);
+    expect(data?.text, 'plain-secret');
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+
+    data = await Clipboard.getData(Clipboard.kTextPlain);
+    expect(data?.text, '');
   });
 
   testWidgets('entry dialog uses inline category choices', (tester) async {
@@ -649,8 +762,12 @@ void main() {
       MaterialApp(
         home: SettingsScreen(
           initialSettings: WebDavSettings.empty,
+          initialPreferences: AppPreferences.defaults,
           onSaveWebDav: (_, _, _) async {},
           onTestWebDav: (_, _, _) async => '连接失败 401',
+          onSavePreferences: (_) async {},
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
           onChangeMasterPassword: () async {},
           onBack: () {},
         ),
@@ -686,12 +803,16 @@ void main() {
       MaterialApp(
         home: SettingsScreen(
           initialSettings: WebDavSettings.empty,
+          initialPreferences: AppPreferences.defaults,
           onSaveWebDav: (url, account, appPassword) async {
             savedUrl = url;
             savedAccount = account;
             savedPassword = appPassword;
           },
           onTestWebDav: (_, _, _) async => '连接成功',
+          onSavePreferences: (_) async {},
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
           onChangeMasterPassword: () async {},
           onBack: () {},
         ),
@@ -722,5 +843,86 @@ void main() {
     expect(savedAccount, 'user@example.com');
     expect(savedPassword, 'app-password');
     expect(find.text('设置已保存'), findsOneWidget);
+  });
+
+  testWidgets('security timers can be adjusted from settings', (tester) async {
+    final saved = <AppPreferences>[];
+
+    await tester.binding.setSurfaceSize(const Size(1200, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          initialSettings: WebDavSettings.empty,
+          initialPreferences: AppPreferences.defaults,
+          onSaveWebDav: (_, _, _) async {},
+          onTestWebDav: (_, _, _) async => '连接成功',
+          onSavePreferences: (preferences) async => saved.add(preferences),
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
+          onChangeMasterPassword: () async {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.byType(DropdownButtonFormField<int>).at(0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('永不锁定').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(DropdownButtonFormField<int>).at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('1 分钟').last);
+    await tester.pumpAndSettle();
+
+    expect(saved.last.autoLockMinutes, 0);
+    expect(saved.last.clipboardClearSeconds, 60);
+    expect(find.text('安全设置已保存'), findsOneWidget);
+  });
+
+  testWidgets('backup actions call export and import callbacks', (
+    tester,
+  ) async {
+    var exported = false;
+    var imported = false;
+
+    await tester.binding.setSurfaceSize(const Size(1200, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          initialSettings: WebDavSettings.empty,
+          initialPreferences: AppPreferences.defaults,
+          onSaveWebDav: (_, _, _) async {},
+          onTestWebDav: (_, _, _) async => '连接成功',
+          onSavePreferences: (_) async {},
+          onExportBackup: () async {
+            exported = true;
+            return '备份已导出';
+          },
+          onImportBackup: () async {
+            imported = true;
+            return '已从备份恢复';
+          },
+          onChangeMasterPassword: () async {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, '导出加密备份'));
+    await tester.pumpAndSettle();
+
+    expect(exported, isTrue);
+    expect(find.text('备份已导出'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '从备份恢复'));
+    await tester.pumpAndSettle();
+
+    expect(imported, isTrue);
+    expect(find.text('已从备份恢复'), findsOneWidget);
   });
 }
