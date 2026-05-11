@@ -20,6 +20,18 @@ void main() {
     expect(find.text('创建密码库'), findsWidgets);
   });
 
+  testWidgets('app theme keeps dialogs on the neutral white surface', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const PassStoreApp());
+
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    final theme = app.theme!;
+
+    expect(theme.dialogTheme.backgroundColor, Colors.white);
+    expect(theme.dialogTheme.surfaceTintColor, Colors.white);
+  });
+
   testWidgets('unlock error does not move the unlock button', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

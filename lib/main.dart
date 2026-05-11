@@ -105,6 +105,11 @@ class _PassStoreAppState extends State<PassStoreApp> {
             side: const BorderSide(color: Color(0xffe2e8f0)),
           ),
         ),
+        dialogTheme: DialogThemeData(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
         dividerTheme: const DividerThemeData(color: Color(0xffe2e8f0)),
       ),
       home: _buildHome(),
