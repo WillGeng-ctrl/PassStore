@@ -1,122 +1,184 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
+import 'core/models/vault.dart';
+import 'core/services/vault_crypto.dart';
+import 'core/services/vault_service.dart';
+import 'data/local_vault_repository.dart';
+import 'data/webdav_settings.dart';
+import 'features/app_shell.dart';
+import 'features/screens/create_vault_screen.dart';
+import 'features/screens/unlock_screen.dart';
+
 void main() {
-  runApp(const MyApp());
+  runApp(const PassStoreApp(enablePersistence: true));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class PassStoreApp extends StatefulWidget {
+  const PassStoreApp({super.key, this.enablePersistence = false});
 
-  // This widget is the root of your application.
+  final bool enablePersistence;
+
+  @override
+  State<PassStoreApp> createState() => _PassStoreAppState();
+}
+
+class _PassStoreAppState extends State<PassStoreApp> {
+  final _crypto = VaultCrypto();
+  final _repository = const LocalVaultRepository();
+  final _settingsStore = WebDavSettingsStore();
+
+  Vault? _vault;
+  EncryptedVaultPayload? _encryptedPayload;
+  String? _masterPassword;
+  bool _loading = true;
+  bool _hasVault = false;
+  WebDavSettings _webDavSettings = WebDavSettings.empty;
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'PassStore',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff2f6f5e)),
+        scaffoldBackgroundColor: const Color(0xfff6f7f4),
+        inputDecorationTheme: const InputDecorationTheme(isDense: true),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: const BorderSide(color: Color(0xffd9ded5))),
+        ),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: _buildHome(),
     );
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  Widget _buildHome() {
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    final vault = _vault;
+    final masterPassword = _masterPassword;
+    if (vault != null && masterPassword != null) {
+      return AppShell(
+        vault: vault,
+        masterPassword: masterPassword,
+        encryptedPayload: _encryptedPayload,
+        webDavSettings: _webDavSettings,
+        onVaultChanged: _persistVault,
+        onMasterPasswordChanged: _changeMasterPassword,
+        onSaveWebDav: _saveWebDav,
+        onLock: _lock,
+      );
+    }
+    if (_hasVault) {
+      return UnlockScreen(onUnlock: _unlockVault);
+    }
+    return CreateVaultScreen(onCreate: _createVault);
+  }
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
+  Future<void> _bootstrap() async {
+    if (!widget.enablePersistence) {
+      setState(() => _loading = false);
+      return;
+    }
+    try {
+      final settings = await _settingsStore.load();
+      final payload = await _repository.readEncrypted();
+      setState(() {
+        _webDavSettings = settings;
+        _encryptedPayload = payload;
+        _hasVault = payload != null;
+        _loading = false;
+      });
+    } catch (_) {
+      setState(() => _loading = false);
+    }
+  }
 
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
+  Future<void> _createVault(String masterPassword) async {
+    final vault = VaultService.createEmptyVault(now: DateTime.now().toUtc());
+    final payload = await _crypto.encryptString(
+      plaintext: jsonEncode(vault.toJson()),
+      masterPassword: masterPassword,
+    );
+    if (widget.enablePersistence) await _repository.writeEncrypted(payload);
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _vault = vault;
+      _masterPassword = masterPassword;
+      _encryptedPayload = payload;
+      _hasVault = true;
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ),
+  Future<void> _unlockVault(String masterPassword) async {
+    final payload = _encryptedPayload ?? await _repository.readEncrypted();
+    if (payload == null) throw const VaultCryptoException('没有可解锁的密码库');
+    final plaintext = await _crypto.decryptString(payload, masterPassword: masterPassword);
+    final vault = Vault.fromJson((jsonDecode(plaintext) as Map<String, Object?>).cast<String, Object?>());
+    setState(() {
+      _vault = vault;
+      _masterPassword = masterPassword;
+      _encryptedPayload = payload;
+      _hasVault = true;
+    });
+  }
+
+  Future<void> _persistVault(Vault vault) async {
+    final password = _masterPassword;
+    if (password == null) return;
+    final payload = await _crypto.encryptString(
+      plaintext: jsonEncode(vault.toJson()),
+      masterPassword: password,
     );
+    if (widget.enablePersistence) await _repository.writeEncrypted(payload);
+    setState(() {
+      _vault = vault;
+      _encryptedPayload = payload;
+    });
+  }
+
+  Future<void> _changeMasterPassword(String currentPassword, String nextPassword) async {
+    final payload = _encryptedPayload;
+    final vault = _vault;
+    if (payload == null || vault == null) throw const VaultCryptoException('没有可修改的密码库');
+    await _crypto.decryptString(payload, masterPassword: currentPassword);
+    final nextPayload = await _crypto.encryptString(
+      plaintext: jsonEncode(vault.toJson()),
+      masterPassword: nextPassword,
+    );
+    if (widget.enablePersistence) await _repository.writeEncrypted(nextPayload);
+    setState(() {
+      _masterPassword = nextPassword;
+      _encryptedPayload = nextPayload;
+    });
+  }
+
+  Future<void> _saveWebDav(String url, String account, String appPassword) async {
+    if (widget.enablePersistence) {
+      await _settingsStore.save(url: url, account: account, appPassword: appPassword);
+    }
+    setState(() {
+      _webDavSettings = WebDavSettings(
+        url: url,
+        account: account,
+        hasAppPassword: appPassword.isNotEmpty || _webDavSettings.hasAppPassword,
+      );
+    });
+  }
+
+  void _lock() {
+    setState(() {
+      _vault = null;
+      _masterPassword = null;
+      _hasVault = true;
+    });
   }
 }
