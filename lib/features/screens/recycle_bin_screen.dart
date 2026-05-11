@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/vault_entry.dart';
+import 'passstore_dialog.dart';
 
 class RecycleBinScreen extends StatelessWidget {
   const RecycleBinScreen({
@@ -59,16 +60,14 @@ class RecycleBinScreen extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('永久删除“${entry.title}”？'),
+        title: PassStoreDialogTitle('永久删除“${entry.title}”？'),
         content: const Text('永久删除后无法恢复。'),
+        actionsPadding: EdgeInsets.zero,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('永久删除'),
+          PassStoreDialogActions(
+            primaryLabel: '永久删除',
+            onPrimary: () => Navigator.pop(context, true),
+            onCancel: () => Navigator.pop(context, false),
           ),
         ],
       ),

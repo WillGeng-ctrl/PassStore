@@ -24,11 +24,13 @@ class PassStoreDialogActions extends StatelessWidget {
     required this.primaryLabel,
     required this.onPrimary,
     required this.onCancel,
+    this.secondaryLabel = '取消',
   });
 
   final String primaryLabel;
   final VoidCallback onPrimary;
   final VoidCallback onCancel;
+  final String secondaryLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +46,10 @@ class PassStoreDialogActions extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: OutlinedButton(onPressed: onCancel, child: const Text('取消')),
+            child: OutlinedButton(
+              onPressed: onCancel,
+              child: Text(secondaryLabel),
+            ),
           ),
         ],
       ),

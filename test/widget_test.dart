@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:passstore/core/models/category.dart';
 import 'package:passstore/core/models/vault_entry.dart';
+import 'package:passstore/core/services/vault_merge.dart';
 import 'package:passstore/core/services/vault_service.dart';
 import 'package:passstore/data/webdav_settings.dart';
 import 'package:passstore/features/app_shell.dart';
@@ -12,6 +13,7 @@ import 'package:passstore/features/screens/edit_entry_dialog.dart';
 import 'package:passstore/features/screens/main_vault_screen.dart';
 import 'package:passstore/features/screens/recycle_bin_screen.dart';
 import 'package:passstore/features/screens/settings_screen.dart';
+import 'package:passstore/features/screens/sync_conflict_dialog.dart';
 import 'package:passstore/features/screens/unlock_screen.dart';
 import 'package:passstore/main.dart';
 
@@ -319,6 +321,83 @@ void main() {
     expect(deleteSize.width, cancelSize.width);
     expect(deleteSize.height, cancelSize.height);
     expect(cancelLeft, greaterThan(deleteLeft));
+  });
+
+  testWidgets(
+    'recycle bin delete dialog uses compact title and equal actions',
+    (tester) async {
+      final now = DateTime.utc(2026, 5, 12);
+      final entry = VaultEntry.create(
+        title: '测试',
+        account: 'user@example.com',
+        password: 'password',
+        url: 'https://example.com',
+        notes: '',
+        categoryId: Category.websiteId,
+        now: now,
+      ).copyWith(deletedAt: now);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RecycleBinScreen(
+            entries: [entry],
+            onRestore: (_) {},
+            onDeleteForever: (_) {},
+            onBack: () {},
+          ),
+        ),
+      );
+
+      await tester.tap(find.widgetWithText(TextButton, '永久删除'));
+      await tester.pumpAndSettle();
+
+      final title = tester.widget<Text>(find.text('永久删除“测试”？'));
+      final delete = find.widgetWithText(FilledButton, '永久删除');
+      final cancel = find.widgetWithText(OutlinedButton, '取消');
+
+      final deleteSize = tester.getSize(delete);
+      final cancelSize = tester.getSize(cancel);
+      final deleteLeft = tester.getTopLeft(delete).dx;
+      final cancelLeft = tester.getTopLeft(cancel).dx;
+
+      expect(title.style?.fontSize, 22);
+      expect(deleteSize.width, cancelSize.width);
+      expect(deleteSize.height, cancelSize.height);
+      expect(cancelLeft, greaterThan(deleteLeft));
+    },
+  );
+
+  testWidgets('sync conflict dialog uses compact title and equal actions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SyncConflictDialog(
+            conflict: FieldConflict(
+              entryId: 'entry-1',
+              fieldName: 'password',
+              localValue: 'local-password',
+              remoteValue: 'remote-password',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final title = tester.widget<Text>(find.text('解决同步冲突'));
+    final remote = find.widgetWithText(FilledButton, '选择云端值');
+    final local = find.widgetWithText(OutlinedButton, '选择本机值');
+
+    final remoteSize = tester.getSize(remote);
+    final localSize = tester.getSize(local);
+    final remoteLeft = tester.getTopLeft(remote).dx;
+    final localLeft = tester.getTopLeft(local).dx;
+
+    expect(title.style?.fontSize, 22);
+    expect(remoteSize.width, localSize.width);
+    expect(remoteSize.height, localSize.height);
+    expect(localLeft, greaterThan(remoteLeft));
   });
 
   testWidgets('subpage back buttons leave leading margin', (tester) async {
