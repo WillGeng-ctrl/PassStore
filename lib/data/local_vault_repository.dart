@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 
 import '../core/services/vault_crypto.dart';
 
@@ -30,7 +29,22 @@ class LocalVaultRepository {
   }
 
   Future<File> _vaultFile() async {
-    final dir = await getApplicationDocumentsDirectory();
-    return File(p.join(dir.path, 'PassStore', fileName));
+    return File(p.join(_appDataDirectory().path, fileName));
+  }
+
+  Directory _appDataDirectory() {
+    if (Platform.isWindows) {
+      final appData = Platform.environment['APPDATA'];
+      if (appData != null && appData.isNotEmpty) {
+        return Directory(p.join(appData, 'PassStore'));
+      }
+    }
+    if (Platform.isMacOS) {
+      final home = Platform.environment['HOME'];
+      if (home != null && home.isNotEmpty) {
+        return Directory(p.join(home, 'Library', 'Application Support', 'PassStore'));
+      }
+    }
+    return Directory(p.join(Directory.current.path, '.passstore'));
   }
 }

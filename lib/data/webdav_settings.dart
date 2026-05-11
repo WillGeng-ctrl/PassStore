@@ -1,5 +1,7 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
 
 class WebDavSettings {
   const WebDavSettings({
@@ -30,37 +32,62 @@ class WebDavSettings {
 }
 
 class WebDavSettingsStore {
-  WebDavSettingsStore({FlutterSecureStorage? secureStorage})
-      : _secureStorage = secureStorage ?? const FlutterSecureStorage();
-
-  static const _urlKey = 'webdav.url';
-  static const _accountKey = 'webdav.account';
-  static const _passwordKey = 'webdav.appPassword';
-
-  final FlutterSecureStorage _secureStorage;
+  const WebDavSettingsStore();
 
   Future<WebDavSettings> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final password = await _secureStorage.read(key: _passwordKey);
+    final file = _settingsFile();
+    if (!await file.exists()) return WebDavSettings.empty;
+    final json = jsonDecode(await file.readAsString()) as Map<String, Object?>;
+    final password = json['appPassword'] as String?;
     return WebDavSettings(
-      url: prefs.getString(_urlKey) ?? WebDavSettings.empty.url,
-      account: prefs.getString(_accountKey) ?? '',
+      url: json['url'] as String? ?? WebDavSettings.empty.url,
+      account: json['account'] as String? ?? '',
       hasAppPassword: password != null && password.isNotEmpty,
     );
   }
 
-  Future<String?> readPassword() => _secureStorage.read(key: _passwordKey);
+  Future<String?> readPassword() async {
+    final file = _settingsFile();
+    if (!await file.exists()) return null;
+    final json = jsonDecode(await file.readAsString()) as Map<String, Object?>;
+    return json['appPassword'] as String?;
+  }
 
   Future<void> save({
     required String url,
     required String account,
     String? appPassword,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_urlKey, url);
-    await prefs.setString(_accountKey, account);
-    if (appPassword != null && appPassword.isNotEmpty) {
-      await _secureStorage.write(key: _passwordKey, value: appPassword);
+    final file = _settingsFile();
+    await file.parent.create(recursive: true);
+    final existingPassword = await readPassword();
+    await file.writeAsString(
+      const JsonEncoder.withIndent('  ').convert({
+        'url': url,
+        'account': account,
+        'appPassword': appPassword != null && appPassword.isNotEmpty ? appPassword : existingPassword,
+      }),
+      flush: true,
+    );
+  }
+
+  File _settingsFile() {
+    return File(p.join(_appDataDirectory().path, 'settings.json'));
+  }
+
+  Directory _appDataDirectory() {
+    if (Platform.isWindows) {
+      final appData = Platform.environment['APPDATA'];
+      if (appData != null && appData.isNotEmpty) {
+        return Directory(p.join(appData, 'PassStore'));
+      }
     }
+    if (Platform.isMacOS) {
+      final home = Platform.environment['HOME'];
+      if (home != null && home.isNotEmpty) {
+        return Directory(p.join(home, 'Library', 'Application Support', 'PassStore'));
+      }
+    }
+    return Directory(p.join(Directory.current.path, '.passstore'));
   }
 }
