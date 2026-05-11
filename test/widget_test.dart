@@ -882,7 +882,7 @@ void main() {
       saved.last.clipboardClearSeconds,
       AppPreferences.defaults.clipboardClearSeconds,
     );
-    expect(find.text('安全设置已保存'), findsOneWidget);
+    expect(find.text('安全设置已保存'), findsNothing);
   });
 
   testWidgets('backup actions call export and import callbacks', (

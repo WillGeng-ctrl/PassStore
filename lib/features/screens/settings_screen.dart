@@ -40,7 +40,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late int _autoLockMinutes;
   String _testMessage = '';
   String _saveMessage = '';
-  String _preferencesMessage = '';
   String _backupMessage = '';
   bool _busy = false;
   bool _preferencesBusy = false;
@@ -171,16 +170,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: '无操作后自动回到解锁页',
                   trailing: _autoLockSelector(context),
                 ),
-                if (_preferencesMessage.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _preferencesMessage,
-                    style: const TextStyle(
-                      color: Color(0xff079455),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
               ]),
               _group('备份与恢复', [
                 const Text('备份文件保持加密状态，恢复时需要当前主密码能够解开该备份。'),
@@ -253,7 +242,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _savePreferences() async {
     setState(() {
       _preferencesBusy = true;
-      _preferencesMessage = '';
     });
     await widget.onSavePreferences(
       AppPreferences(
@@ -262,10 +250,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (mounted) {
-      setState(() {
-        _preferencesMessage = '安全设置已保存';
-        _preferencesBusy = false;
-      });
+      setState(() => _preferencesBusy = false);
     }
   }
 
