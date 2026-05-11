@@ -147,16 +147,12 @@ class _MainVaultScreenState extends State<MainVaultScreen> {
                                     subtitle: Text(
                                       '${entry.account}  ·  ${entry.url}',
                                     ),
-                                    leading: const Icon(Icons.vpn_key_outlined),
+                                    leading: Icon(categoryIcon(category)),
                                     trailing: Wrap(
                                       spacing: 8,
                                       crossAxisAlignment:
                                           WrapCrossAlignment.center,
                                       children: [
-                                        Chip(
-                                          label: Text(category.name),
-                                          visualDensity: VisualDensity.compact,
-                                        ),
                                         Text(
                                           _dateText(entry.updatedAt),
                                           style: Theme.of(
@@ -393,16 +389,16 @@ class _CategoryTreeState extends State<_CategoryTree> {
       ),
     );
   }
+}
 
-  IconData categoryIcon(Category category) {
-    return switch (category.id) {
-      Category.websiteId => Icons.public,
-      Category.appId => Icons.apps_outlined,
-      Category.gameId => Icons.sports_esports_outlined,
-      Category.otherId => Icons.archive_outlined,
-      _ => Icons.folder_outlined,
-    };
-  }
+IconData categoryIcon(Category category) {
+  return switch (category.id) {
+    Category.websiteId => Icons.public,
+    Category.appId => Icons.apps_outlined,
+    Category.gameId => Icons.sports_esports_outlined,
+    Category.otherId => Icons.archive_outlined,
+    _ => Icons.folder_outlined,
+  };
 }
 
 class _SyncBadge extends StatelessWidget {

@@ -121,6 +121,48 @@ void main() {
     expect(find.widgetWithText(FilledButton, '新建条目'), findsOneWidget);
   });
 
+  testWidgets('main vault row uses category icon and omits category chip', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 5, 12);
+    var vault = VaultService.createEmptyVault(now: now);
+    final websiteEntry = VaultEntry.create(
+      title: '坚果云',
+      account: 'user@example.com',
+      password: 'secret',
+      url: 'https://www.jianguoyun.com',
+      notes: '',
+      categoryId: Category.websiteId,
+      now: now,
+    );
+    vault = VaultService.upsertEntry(vault, websiteEntry, now: now);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MainVaultScreen(
+          vault: vault,
+          syncStatus: '未配置同步',
+          onNewEntry: (_) {},
+          onEditEntry: (_) {},
+          onDeleteEntry: (_) {},
+          onOpenSettings: () {},
+          onOpenCategories: () {},
+          onOpenRecycleBin: () {},
+          onLock: () {},
+        ),
+      ),
+    );
+
+    final entryTile = tester.widget<ListTile>(
+      find
+          .ancestor(of: find.text('坚果云'), matching: find.byType(ListTile))
+          .first,
+    );
+
+    expect((entryTile.leading! as Icon).icon, Icons.public);
+    expect(find.byType(Chip), findsNothing);
+  });
+
   testWidgets('unconfigured WebDAV settings show unconfigured sync status', (
     tester,
   ) async {
