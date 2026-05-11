@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'form_error_slot.dart';
+
 class UnlockScreen extends StatefulWidget {
   const UnlockScreen({super.key, required this.onUnlock});
 
@@ -23,10 +25,10 @@ class _UnlockScreenState extends State<UnlockScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xfff6f7f4),
+      backgroundColor: const Color(0xfff4f6f8),
       body: Center(
         child: SizedBox(
-          width: 440,
+          width: 420,
           child: Card(
             child: Padding(
               padding: const EdgeInsets.all(32),
@@ -34,17 +36,45 @@ class _UnlockScreenState extends State<UnlockScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.lock_rounded, size: 52, color: Color(0xff245f52)),
+                  Center(
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: const Color(0xff2563eb),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.lock_outline,
+                        size: 36,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 16),
-                  Text('PassStore', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    'PassStore',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 24),
-                  TextField(controller: _password, obscureText: true, decoration: const InputDecoration(labelText: '主密码', border: OutlineInputBorder())),
-                  if (_error != null) ...[
-                    const SizedBox(height: 12),
-                    Text(_error!, style: const TextStyle(color: Colors.red)),
-                  ],
-                  const SizedBox(height: 20),
-                  FilledButton(onPressed: _busy ? null : _submit, child: Text(_busy ? '解锁中...' : '解锁')),
+                  TextField(
+                    controller: _password,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: '主密码',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  FormErrorSlot(message: _error),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _busy ? null : _submit,
+                    child: Text(_busy ? '解锁中...' : '解锁'),
+                  ),
                 ],
               ),
             ),

@@ -27,7 +27,6 @@ class _EditEntryDialogState extends State<EditEntryDialog> {
   late final TextEditingController _url;
   late final TextEditingController _notes;
   late String _categoryId;
-  bool _showPassword = false;
 
   @override
   void initState() {
@@ -56,37 +55,61 @@ class _EditEntryDialogState extends State<EditEntryDialog> {
     return AlertDialog(
       title: Text(widget.entry == null ? '新建条目' : '编辑条目'),
       content: SizedBox(
-        width: 520,
+        width: 480,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: _title, decoration: const InputDecoration(labelText: '标题', border: OutlineInputBorder())),
+              TextField(
+                controller: _title,
+                decoration: const InputDecoration(
+                  labelText: '标题',
+                  border: OutlineInputBorder(),
+                ),
+              ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 initialValue: _categoryId,
-                decoration: const InputDecoration(labelText: '分类', border: OutlineInputBorder()),
-                items: widget.categories.map((category) => DropdownMenuItem(value: category.id, child: Text(category.name))).toList(),
-                onChanged: (value) => setState(() => _categoryId = value ?? _categoryId),
+                decoration: const InputDecoration(
+                  labelText: '分类',
+                  border: OutlineInputBorder(),
+                ),
+                items: widget.categories
+                    .map(
+                      (category) => DropdownMenuItem(
+                        value: category.id,
+                        child: Text(category.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) =>
+                    setState(() => _categoryId = value ?? _categoryId),
               ),
               const SizedBox(height: 12),
               _copyField(controller: _account, label: '账号'),
               const SizedBox(height: 12),
-              _copyField(controller: _password, label: '密码', obscure: !_showPassword, trailing: IconButton(
-                tooltip: _showPassword ? '隐藏密码' : '显示密码',
-                icon: Icon(_showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                onPressed: () => setState(() => _showPassword = !_showPassword),
-              )),
+              _copyField(controller: _password, label: '密码'),
               const SizedBox(height: 12),
               _copyField(controller: _url, label: '网址'),
               const SizedBox(height: 12),
-              TextField(controller: _notes, minLines: 3, maxLines: 5, decoration: const InputDecoration(labelText: '备注', border: OutlineInputBorder())),
+              TextField(
+                controller: _notes,
+                minLines: 3,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  labelText: '备注',
+                  border: OutlineInputBorder(),
+                ),
+              ),
             ],
           ),
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
         FilledButton(onPressed: _save, child: const Text('保存')),
       ],
     );
@@ -113,7 +136,9 @@ class _EditEntryDialogState extends State<EditEntryDialog> {
               icon: const Icon(Icons.copy_outlined),
               onPressed: () {
                 Clipboard.setData(ClipboardData(text: controller.text));
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$label已复制，稍后自动清空剪贴板')));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('$label已复制，稍后自动清空剪贴板')));
               },
             ),
           ],

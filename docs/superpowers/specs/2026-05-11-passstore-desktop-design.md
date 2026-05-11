@@ -27,6 +27,7 @@ The first version includes:
 - Provide a recycle bin for deleted entries.
 - Copy account, password, and URL fields.
 - Hide passwords by default, with an explicit show action.
+- In the add/edit entry dialog, show the password field as plain text by default for lower-friction personal use.
 - Clear copied passwords from the clipboard after a configurable delay.
 - Auto-lock the vault after an idle timeout.
 - Sync the encrypted vault through Jianguoyun WebDAV.
@@ -163,12 +164,15 @@ The exact interface design will be handled separately in Figma, but the product 
 
 - The app opens to unlock or to the main vault view.
 - Search should be prominent and fast.
-- Category navigation should be obvious but not heavy.
+- Category navigation should be a simple tree in the left sidebar.
 - Entry editing should be direct and low friction.
+- The main vault screen should have only one primary `新建条目` action to avoid duplicate choices.
 - Copying account, password, and URL should be one-click.
-- Passwords should be hidden by default.
-- Sync status should be visible but quiet.
-- Error messages should explain what the user can do next.
+- Unlock and first-run screens should follow the blue/white desktop style from the Figma reference, not a green-tinted style.
+- The app should use platform/system font fallbacks so Chinese text is clear on Windows and macOS.
+- Error messages should explain what the user can do next without moving buttons or changing the overall form layout.
+- Sync status should be visible but quiet. If WebDAV credentials are not configured, it must show an unconfigured state instead of `已同步`.
+- Desktop windows should open centered and use balanced dimensions close to a normal desktop app ratio instead of looking stretched or oddly placed.
 
 The app should not feel like an admin console. It should feel like a small personal utility.
 

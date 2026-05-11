@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'form_error_slot.dart';
+
 class CreateVaultScreen extends StatefulWidget {
   const CreateVaultScreen({super.key, required this.onCreate});
 
@@ -25,7 +27,7 @@ class _CreateVaultScreenState extends State<CreateVaultScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xfff6f7f4),
+      backgroundColor: const Color(0xfff4f6f8),
       body: Center(
         child: SizedBox(
           width: 520,
@@ -37,28 +39,66 @@ class _CreateVaultScreenState extends State<CreateVaultScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(Icons.key_rounded, size: 56, color: Color(0xff245f52)),
+                  Center(
+                    child: Container(
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: const Color(0xff2563eb),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.key_outlined,
+                        size: 36,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 16),
-                  Text('PassStore', textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    'PassStore',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   const Text('创建你的密码库', textAlign: TextAlign.center),
                   const SizedBox(height: 28),
-                  TextField(controller: _password, obscureText: true, decoration: const InputDecoration(labelText: '主密码', border: OutlineInputBorder())),
+                  TextField(
+                    controller: _password,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: '主密码',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
                   const SizedBox(height: 16),
-                  TextField(controller: _confirm, obscureText: true, decoration: const InputDecoration(labelText: '确认主密码', border: OutlineInputBorder())),
+                  TextField(
+                    controller: _confirm,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: '确认主密码',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   const DecoratedBox(
-                    decoration: BoxDecoration(color: Color(0xfffff7df), borderRadius: BorderRadius.all(Radius.circular(8))),
+                    decoration: BoxDecoration(
+                      color: Color(0xfffff7df),
+                      borderRadius: BorderRadius.all(Radius.circular(8)),
+                      border: Border.fromBorderSide(
+                        BorderSide(color: Color(0xffffd666)),
+                      ),
+                    ),
                     child: Padding(
                       padding: EdgeInsets.all(14),
                       child: Text('重要：主密码无法找回，请务必牢记。忘记主密码将无法访问密码库中的任何数据。'),
                     ),
                   ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 12),
-                    Text(_error!, style: const TextStyle(color: Colors.red)),
-                  ],
-                  const SizedBox(height: 22),
+                  const SizedBox(height: 8),
+                  FormErrorSlot(message: _error),
+                  const SizedBox(height: 14),
                   FilledButton(
                     onPressed: _busy ? null : _submit,
                     child: Text(_busy ? '创建中...' : '创建密码库'),

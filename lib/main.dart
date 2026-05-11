@@ -44,17 +44,68 @@ class _PassStoreAppState extends State<PassStoreApp> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xff2563eb),
+    );
     return MaterialApp(
       title: 'PassStore',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff2f6f5e)),
-        scaffoldBackgroundColor: const Color(0xfff6f7f4),
-        inputDecorationTheme: const InputDecorationTheme(isDense: true),
+        useMaterial3: true,
+        colorScheme: colorScheme,
+        scaffoldBackgroundColor: const Color(0xfff4f6f8),
+        fontFamilyFallback: const [
+          'Microsoft YaHei UI',
+          'Microsoft YaHei',
+          'PingFang SC',
+          'Hiragino Sans GB',
+          'Noto Sans SC',
+          'Segoe UI',
+          'Arial',
+        ],
+        inputDecorationTheme: InputDecorationTheme(
+          isDense: true,
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xffcbd5e1)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Color(0xff2563eb), width: 2),
+          ),
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xff2563eb),
+            foregroundColor: Colors.white,
+            minimumSize: const Size.fromHeight(44),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xff1d4ed8),
+            minimumSize: const Size.fromHeight(44),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
         cardTheme: CardThemeData(
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: const BorderSide(color: Color(0xffd9ded5))),
+          color: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: const BorderSide(color: Color(0xffe2e8f0)),
+          ),
         ),
+        dividerTheme: const DividerThemeData(color: Color(0xffe2e8f0)),
       ),
       home: _buildHome(),
     );
@@ -121,8 +172,13 @@ class _PassStoreAppState extends State<PassStoreApp> {
   Future<void> _unlockVault(String masterPassword) async {
     final payload = _encryptedPayload ?? await _repository.readEncrypted();
     if (payload == null) throw const VaultCryptoException('没有可解锁的密码库');
-    final plaintext = await _crypto.decryptString(payload, masterPassword: masterPassword);
-    final vault = Vault.fromJson((jsonDecode(plaintext) as Map<String, Object?>).cast<String, Object?>());
+    final plaintext = await _crypto.decryptString(
+      payload,
+      masterPassword: masterPassword,
+    );
+    final vault = Vault.fromJson(
+      (jsonDecode(plaintext) as Map<String, Object?>).cast<String, Object?>(),
+    );
     setState(() {
       _vault = vault;
       _masterPassword = masterPassword;
@@ -145,10 +201,15 @@ class _PassStoreAppState extends State<PassStoreApp> {
     });
   }
 
-  Future<void> _changeMasterPassword(String currentPassword, String nextPassword) async {
+  Future<void> _changeMasterPassword(
+    String currentPassword,
+    String nextPassword,
+  ) async {
     final payload = _encryptedPayload;
     final vault = _vault;
-    if (payload == null || vault == null) throw const VaultCryptoException('没有可修改的密码库');
+    if (payload == null || vault == null) {
+      throw const VaultCryptoException('没有可修改的密码库');
+    }
     await _crypto.decryptString(payload, masterPassword: currentPassword);
     final nextPayload = await _crypto.encryptString(
       plaintext: jsonEncode(vault.toJson()),
@@ -161,15 +222,24 @@ class _PassStoreAppState extends State<PassStoreApp> {
     });
   }
 
-  Future<void> _saveWebDav(String url, String account, String appPassword) async {
+  Future<void> _saveWebDav(
+    String url,
+    String account,
+    String appPassword,
+  ) async {
     if (widget.enablePersistence) {
-      await _settingsStore.save(url: url, account: account, appPassword: appPassword);
+      await _settingsStore.save(
+        url: url,
+        account: account,
+        appPassword: appPassword,
+      );
     }
     setState(() {
       _webDavSettings = WebDavSettings(
         url: url,
         account: account,
-        hasAppPassword: appPassword.isNotEmpty || _webDavSettings.hasAppPassword,
+        hasAppPassword:
+            appPassword.isNotEmpty || _webDavSettings.hasAppPassword,
       );
     });
   }

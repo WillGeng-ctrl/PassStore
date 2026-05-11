@@ -38,20 +38,34 @@ class _MainVaultScreenState extends State<MainVaultScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activeEntries = widget.vault.entries.where((entry) => !entry.isDeleted).toList();
+    final activeEntries = widget.vault.entries
+        .where((entry) => !entry.isDeleted)
+        .toList();
     final filtered = activeEntries.where((entry) {
-      if (_selectedCategoryId != null && entry.categoryId != _selectedCategoryId) return false;
+      if (_selectedCategoryId != null &&
+          entry.categoryId != _selectedCategoryId) {
+        return false;
+      }
       final query = _query.trim().toLowerCase();
       if (query.isEmpty) return true;
-      return '${entry.title} ${entry.account} ${entry.url}'.toLowerCase().contains(query);
-    }).toList()
-      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    final selectedCategoryName = _selectedCategoryId == null ? '全部' : widget.vault.categories.firstWhere((category) => category.id == _selectedCategoryId).name;
+      return '${entry.title} ${entry.account} ${entry.url}'
+          .toLowerCase()
+          .contains(query);
+    }).toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final selectedCategoryName = _selectedCategoryId == null
+        ? '全部'
+        : widget.vault.categories
+              .firstWhere((category) => category.id == _selectedCategoryId)
+              .name;
 
     return Scaffold(
       body: Column(
         children: [
-          _TopBar(syncStatus: widget.syncStatus, onSettings: widget.onOpenSettings, onLock: widget.onLock),
+          _TopBar(
+            syncStatus: widget.syncStatus,
+            onSettings: widget.onOpenSettings,
+            onLock: widget.onLock,
+          ),
           Expanded(
             child: Row(
               children: [
@@ -59,8 +73,11 @@ class _MainVaultScreenState extends State<MainVaultScreen> {
                   categories: widget.vault.categories,
                   selectedCategoryId: _selectedCategoryId,
                   onSelectAll: () => setState(() => _selectedCategoryId = null),
-                  onSelectCategory: (id) => setState(() => _selectedCategoryId = id),
-                  onNewEntry: () => widget.onNewEntry(_selectedCategoryId ?? Category.websiteId),
+                  onSelectCategory: (id) =>
+                      setState(() => _selectedCategoryId = id),
+                  onNewEntry: () => widget.onNewEntry(
+                    _selectedCategoryId ?? Category.websiteId,
+                  ),
                   onOpenCategories: widget.onOpenCategories,
                   onOpenRecycleBin: widget.onOpenRecycleBin,
                 ),
@@ -74,12 +91,15 @@ class _MainVaultScreenState extends State<MainVaultScreen> {
                           children: [
                             Expanded(
                               child: TextField(
-                                decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: '搜索...', border: OutlineInputBorder()),
-                                onChanged: (value) => setState(() => _query = value),
+                                decoration: const InputDecoration(
+                                  prefixIcon: Icon(Icons.search),
+                                  hintText: '搜索...',
+                                  border: OutlineInputBorder(),
+                                ),
+                                onChanged: (value) =>
+                                    setState(() => _query = value),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            FilledButton.icon(onPressed: () => widget.onNewEntry(_selectedCategoryId ?? Category.websiteId), icon: const Icon(Icons.add), label: const Text('新建条目')),
                           ],
                         ),
                       ),
@@ -87,9 +107,18 @@ class _MainVaultScreenState extends State<MainVaultScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Row(
                           children: [
-                            Text(selectedCategoryName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                            Text(
+                              selectedCategoryName,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                             const Spacer(),
-                            Text('${filtered.length} 个条目', style: Theme.of(context).textTheme.bodySmall),
+                            Text(
+                              '${filtered.length} 个条目',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
                           ],
                         ),
                       ),
@@ -98,24 +127,56 @@ class _MainVaultScreenState extends State<MainVaultScreen> {
                         child: filtered.isEmpty
                             ? const Center(child: Text('没有条目'))
                             : ListView.separated(
-                                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  0,
+                                  20,
+                                  20,
+                                ),
                                 itemCount: filtered.length,
-                                separatorBuilder: (_, _) => const Divider(height: 1),
+                                separatorBuilder: (_, _) =>
+                                    const Divider(height: 1),
                                 itemBuilder: (context, index) {
                                   final entry = filtered[index];
-                                  final category = widget.vault.categories.firstWhere((item) => item.id == entry.categoryId);
+                                  final category = widget.vault.categories
+                                      .firstWhere(
+                                        (item) => item.id == entry.categoryId,
+                                      );
                                   return ListTile(
                                     title: Text(entry.title),
-                                    subtitle: Text('${entry.account}  ·  ${entry.url}'),
+                                    subtitle: Text(
+                                      '${entry.account}  ·  ${entry.url}',
+                                    ),
                                     leading: const Icon(Icons.vpn_key_outlined),
                                     trailing: Wrap(
                                       spacing: 8,
-                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
                                       children: [
-                                        Chip(label: Text(category.name), visualDensity: VisualDensity.compact),
-                                        Text(_dateText(entry.updatedAt), style: Theme.of(context).textTheme.bodySmall),
-                                        IconButton(tooltip: '编辑', icon: const Icon(Icons.edit_outlined), onPressed: () => widget.onEditEntry(entry)),
-                                        IconButton(tooltip: '删除', icon: const Icon(Icons.delete_outline), onPressed: () => widget.onDeleteEntry(entry.id)),
+                                        Chip(
+                                          label: Text(category.name),
+                                          visualDensity: VisualDensity.compact,
+                                        ),
+                                        Text(
+                                          _dateText(entry.updatedAt),
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        ),
+                                        IconButton(
+                                          tooltip: '编辑',
+                                          icon: const Icon(Icons.edit_outlined),
+                                          onPressed: () =>
+                                              widget.onEditEntry(entry),
+                                        ),
+                                        IconButton(
+                                          tooltip: '删除',
+                                          icon: const Icon(
+                                            Icons.delete_outline,
+                                          ),
+                                          onPressed: () =>
+                                              widget.onDeleteEntry(entry.id),
+                                        ),
                                       ],
                                     ),
                                     onTap: () => widget.onEditEntry(entry),
@@ -141,7 +202,11 @@ class _MainVaultScreenState extends State<MainVaultScreen> {
 }
 
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.syncStatus, required this.onSettings, required this.onLock});
+  const _TopBar({
+    required this.syncStatus,
+    required this.onSettings,
+    required this.onLock,
+  });
 
   final String syncStatus;
   final VoidCallback onSettings;
@@ -156,12 +221,23 @@ class _TopBar extends StatelessWidget {
         child: Row(
           children: [
             const SizedBox(width: 20),
-            const Text('PassStore', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+            const Text(
+              'PassStore',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            ),
             const SizedBox(width: 16),
-            Chip(avatar: const Icon(Icons.check_circle_outline, size: 16), label: Text(syncStatus), backgroundColor: const Color(0xffe5f5ea)),
+            _SyncBadge(label: syncStatus),
             const Spacer(),
-            IconButton(tooltip: '设置', onPressed: onSettings, icon: const Icon(Icons.settings_outlined)),
-            IconButton(tooltip: '锁定', onPressed: onLock, icon: const Icon(Icons.lock_outline)),
+            IconButton(
+              tooltip: '设置',
+              onPressed: onSettings,
+              icon: const Icon(Icons.settings_outlined),
+            ),
+            IconButton(
+              tooltip: '锁定',
+              onPressed: onLock,
+              icon: const Icon(Icons.lock_outline),
+            ),
             const SizedBox(width: 20),
           ],
         ),
@@ -199,31 +275,77 @@ class _CategoryTreeState extends State<_CategoryTree> {
 
   @override
   Widget build(BuildContext context) {
-    final builtIns = widget.categories.where((category) => category.isBuiltIn).toList();
-    final customs = widget.categories.where((category) => !category.isBuiltIn).toList();
+    final builtIns = widget.categories
+        .where((category) => category.isBuiltIn)
+        .toList();
+    final customs = widget.categories
+        .where((category) => !category.isBuiltIn)
+        .toList();
     return Container(
-      width: 260,
-      color: const Color(0xfff2f5f1),
+      width: 248,
+      color: const Color(0xfff8fafc),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 18, 12, 12),
-            child: FilledButton.icon(onPressed: widget.onNewEntry, icon: const Icon(Icons.add), label: const Text('新建条目')),
+            padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+            child: FilledButton.icon(
+              onPressed: widget.onNewEntry,
+              icon: const Icon(Icons.add),
+              label: const Text('新建条目'),
+            ),
           ),
-          _treeItem(icon: Icons.inventory_2_outlined, label: '全部', selected: widget.selectedCategoryId == null, onTap: widget.onSelectAll),
-          _treeHeader('分类', _categoryExpanded, () => setState(() => _categoryExpanded = !_categoryExpanded)),
-          if (_categoryExpanded) ...builtIns.map((category) => _categoryItem(category, depth: 1)),
-          _treeHeader('自定义分类', _customExpanded, () => setState(() => _customExpanded = !_customExpanded)),
-          if (_customExpanded)
-            if (customs.isEmpty)
-              const Padding(padding: EdgeInsets.fromLTRB(44, 8, 16, 8), child: Text('暂无自定义分类'))
-            else
-              ...customs.map((category) => _categoryItem(category, depth: 1)),
-          const Spacer(),
-          _treeItem(icon: Icons.delete_outline, label: '回收站', selected: false, onTap: widget.onOpenRecycleBin),
-          _treeItem(icon: Icons.folder_open_outlined, label: '管理分类', selected: false, onTap: widget.onOpenCategories),
-          const SizedBox(height: 16),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _treeItem(
+                  icon: Icons.inventory_2_outlined,
+                  label: '全部',
+                  selected: widget.selectedCategoryId == null,
+                  onTap: widget.onSelectAll,
+                ),
+                _treeHeader(
+                  '分类',
+                  _categoryExpanded,
+                  () => setState(() => _categoryExpanded = !_categoryExpanded),
+                ),
+                if (_categoryExpanded)
+                  ...builtIns.map(
+                    (category) => _categoryItem(category, depth: 1),
+                  ),
+                _treeHeader(
+                  '自定义分类',
+                  _customExpanded,
+                  () => setState(() => _customExpanded = !_customExpanded),
+                ),
+                if (_customExpanded)
+                  if (customs.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(44, 8, 16, 8),
+                      child: Text('暂无自定义分类'),
+                    )
+                  else
+                    ...customs.map(
+                      (category) => _categoryItem(category, depth: 1),
+                    ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          _treeItem(
+            icon: Icons.delete_outline,
+            label: '回收站',
+            selected: false,
+            onTap: widget.onOpenRecycleBin,
+          ),
+          _treeItem(
+            icon: Icons.folder_open_outlined,
+            label: '管理分类',
+            selected: false,
+            onTap: widget.onOpenCategories,
+          ),
+          const SizedBox(height: 12),
         ],
       ),
     );
@@ -261,7 +383,10 @@ class _CategoryTreeState extends State<_CategoryTree> {
         dense: true,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         selected: selected,
-        selectedTileColor: const Color(0xffe0eee7),
+        selectedTileColor: const Color(0xffeaf2ff),
+        selectedColor: const Color(0xff1d4ed8),
+        iconColor: selected ? const Color(0xff1d4ed8) : const Color(0xff334155),
+        textColor: selected ? const Color(0xff1d4ed8) : const Color(0xff0f172a),
         leading: Icon(icon),
         title: Text(label),
         onTap: onTap,
@@ -277,5 +402,44 @@ class _CategoryTreeState extends State<_CategoryTree> {
       Category.otherId => Icons.archive_outlined,
       _ => Icons.folder_outlined,
     };
+  }
+}
+
+class _SyncBadge extends StatelessWidget {
+  const _SyncBadge({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final configured = label == '已同步';
+    final background = configured
+        ? const Color(0xffecfdf3)
+        : const Color(0xfff1f5f9);
+    final foreground = configured
+        ? const Color(0xff079455)
+        : const Color(0xff475569);
+    final icon = configured
+        ? Icons.check_circle_outline
+        : Icons.cloud_off_outlined;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: foreground),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(color: foreground, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
   }
 }

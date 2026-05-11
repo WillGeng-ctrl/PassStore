@@ -33,8 +33,10 @@ class AppShell extends StatefulWidget {
   final EncryptedVaultPayload? encryptedPayload;
   final WebDavSettings webDavSettings;
   final Future<void> Function(Vault vault) onVaultChanged;
-  final Future<void> Function(String currentPassword, String nextPassword) onMasterPasswordChanged;
-  final Future<void> Function(String url, String account, String appPassword) onSaveWebDav;
+  final Future<void> Function(String currentPassword, String nextPassword)
+  onMasterPasswordChanged;
+  final Future<void> Function(String url, String account, String appPassword)
+  onSaveWebDav;
   final VoidCallback onLock;
 
   @override
@@ -53,38 +55,39 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    final syncStatus = widget.webDavSettings.isConfigured ? '已同步' : '未配置同步';
     final child = switch (_view) {
       _ShellView.main => MainVaultScreen(
-          vault: _vault,
-          syncStatus: '已同步',
-          onNewEntry: _newEntry,
-          onEditEntry: _editEntry,
-          onDeleteEntry: _deleteEntry,
-          onOpenSettings: () => setState(() => _view = _ShellView.settings),
-          onOpenCategories: () => setState(() => _view = _ShellView.categories),
-          onOpenRecycleBin: () => setState(() => _view = _ShellView.recycleBin),
-          onLock: widget.onLock,
-        ),
+        vault: _vault,
+        syncStatus: syncStatus,
+        onNewEntry: _newEntry,
+        onEditEntry: _editEntry,
+        onDeleteEntry: _deleteEntry,
+        onOpenSettings: () => setState(() => _view = _ShellView.settings),
+        onOpenCategories: () => setState(() => _view = _ShellView.categories),
+        onOpenRecycleBin: () => setState(() => _view = _ShellView.recycleBin),
+        onLock: widget.onLock,
+      ),
       _ShellView.categories => CategoryManagerScreen(
-          categories: _vault.categories,
-          onAdd: _addCategory,
-          onRename: _renameCategory,
-          onDelete: _deleteCategory,
-          onBack: () => setState(() => _view = _ShellView.main),
-        ),
+        categories: _vault.categories,
+        onAdd: _addCategory,
+        onRename: _renameCategory,
+        onDelete: _deleteCategory,
+        onBack: () => setState(() => _view = _ShellView.main),
+      ),
       _ShellView.recycleBin => RecycleBinScreen(
-          entries: _vault.entries.where((entry) => entry.isDeleted).toList(),
-          onRestore: _restoreEntry,
-          onDeleteForever: _deleteForever,
-          onBack: () => setState(() => _view = _ShellView.main),
-        ),
+        entries: _vault.entries.where((entry) => entry.isDeleted).toList(),
+        onRestore: _restoreEntry,
+        onDeleteForever: _deleteForever,
+        onBack: () => setState(() => _view = _ShellView.main),
+      ),
       _ShellView.settings => SettingsScreen(
-          initialSettings: widget.webDavSettings,
-          onSaveWebDav: widget.onSaveWebDav,
-          onTestWebDav: _testWebDav,
-          onChangeMasterPassword: _changeMasterPassword,
-          onBack: () => setState(() => _view = _ShellView.main),
-        ),
+        initialSettings: widget.webDavSettings,
+        onSaveWebDav: widget.onSaveWebDav,
+        onTestWebDav: _testWebDav,
+        onChangeMasterPassword: _changeMasterPassword,
+        onBack: () => setState(() => _view = _ShellView.main),
+      ),
     };
     return Scaffold(body: child);
   }
@@ -134,32 +137,73 @@ class _AppShellState extends State<AppShell> {
   }
 
   Future<void> _deleteEntry(String entryId) async {
-    await _update(VaultService.deleteEntry(_vault, entryId: entryId, now: DateTime.now().toUtc()));
+    await _update(
+      VaultService.deleteEntry(
+        _vault,
+        entryId: entryId,
+        now: DateTime.now().toUtc(),
+      ),
+    );
   }
 
   Future<void> _restoreEntry(String entryId) async {
-    await _update(VaultService.restoreEntry(_vault, entryId: entryId, now: DateTime.now().toUtc()));
+    await _update(
+      VaultService.restoreEntry(
+        _vault,
+        entryId: entryId,
+        now: DateTime.now().toUtc(),
+      ),
+    );
   }
 
   Future<void> _deleteForever(String entryId) async {
-    await _update(VaultService.permanentlyDeleteEntry(_vault, entryId: entryId, now: DateTime.now().toUtc()));
+    await _update(
+      VaultService.permanentlyDeleteEntry(
+        _vault,
+        entryId: entryId,
+        now: DateTime.now().toUtc(),
+      ),
+    );
   }
 
   Future<void> _addCategory(String name) async {
-    await _update(VaultService.addCategory(_vault, name: name, now: DateTime.now().toUtc()));
+    await _update(
+      VaultService.addCategory(_vault, name: name, now: DateTime.now().toUtc()),
+    );
   }
 
   Future<void> _renameCategory(String id, String name) async {
-    await _update(VaultService.renameCategory(_vault, categoryId: id, name: name, now: DateTime.now().toUtc()));
+    await _update(
+      VaultService.renameCategory(
+        _vault,
+        categoryId: id,
+        name: name,
+        now: DateTime.now().toUtc(),
+      ),
+    );
   }
 
   Future<void> _deleteCategory(String id) async {
-    await _update(VaultService.deleteCategory(_vault, categoryId: id, now: DateTime.now().toUtc()));
+    await _update(
+      VaultService.deleteCategory(
+        _vault,
+        categoryId: id,
+        now: DateTime.now().toUtc(),
+      ),
+    );
   }
 
-  Future<String> _testWebDav(String url, String account, String appPassword) async {
+  Future<String> _testWebDav(
+    String url,
+    String account,
+    String appPassword,
+  ) async {
     if (appPassword.isEmpty) return '请输入应用密码后测试连接';
-    final result = await const WebDavSyncService().testConnection(url: url, account: account, appPassword: appPassword);
+    final result = await const WebDavSyncService().testConnection(
+      url: url,
+      account: account,
+      appPassword: appPassword,
+    );
     return result.message;
   }
 
@@ -171,7 +215,9 @@ class _AppShellState extends State<AppShell> {
     if (draft == null) return;
     await widget.onMasterPasswordChanged(draft.current, draft.next);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('主密码已修改')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('主密码已修改')));
     }
   }
 
