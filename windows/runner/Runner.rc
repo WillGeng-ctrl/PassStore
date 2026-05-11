@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "app.passstore" "\0"
-            VALUE "FileDescription", "passstore" "\0"
+            VALUE "FileDescription", "PassStore" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "passstore" "\0"
+            VALUE "InternalName", "PassStore" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 app.passstore. All rights reserved." "\0"
-            VALUE "OriginalFilename", "passstore.exe" "\0"
-            VALUE "ProductName", "passstore" "\0"
+            VALUE "OriginalFilename", "PassStore.exe" "\0"
+            VALUE "ProductName", "PassStore" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

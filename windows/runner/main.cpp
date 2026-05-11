@@ -1,5 +1,6 @@
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
+#include <flutter_windows.h>
 #include <windows.h>
 
 #include "flutter_window.h"
@@ -26,21 +27,34 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   FlutterWindow window(project);
   Win32Window::Size size(1200, 740);
+  POINT primary_point = {0, 0};
+  HMONITOR primary_monitor =
+      ::MonitorFromPoint(primary_point, MONITOR_DEFAULTTOPRIMARY);
+  MONITORINFO monitor_info = {};
+  monitor_info.cbSize = sizeof(monitor_info);
   RECT work_area = {0, 0, ::GetSystemMetrics(SM_CXSCREEN),
                     ::GetSystemMetrics(SM_CYSCREEN)};
-  ::SystemParametersInfo(SPI_GETWORKAREA, 0, &work_area, 0);
+  if (::GetMonitorInfo(primary_monitor, &monitor_info)) {
+    work_area = monitor_info.rcWork;
+  } else {
+    ::SystemParametersInfo(SPI_GETWORKAREA, 0, &work_area, 0);
+  }
+  const double dpi_scale =
+      FlutterDesktopGetDpiForMonitor(primary_monitor) / 96.0;
   const int work_width = work_area.right - work_area.left;
   const int work_height = work_area.bottom - work_area.top;
+  const int window_width = static_cast<int>(size.width * dpi_scale);
+  const int window_height = static_cast<int>(size.height * dpi_scale);
   const int origin_x = work_area.left +
-      (work_width > static_cast<int>(size.width)
-           ? (work_width - static_cast<int>(size.width)) / 2
+      (work_width > window_width
+           ? (work_width - window_width) / 2
            : 0);
   const int origin_y = work_area.top +
-      (work_height > static_cast<int>(size.height)
-           ? (work_height - static_cast<int>(size.height)) / 2
+      (work_height > window_height
+           ? (work_height - window_height) / 2
            : 0);
-  Win32Window::Point origin(static_cast<unsigned int>(origin_x),
-                            static_cast<unsigned int>(origin_y));
+  Win32Window::Point origin(static_cast<unsigned int>(origin_x / dpi_scale),
+                            static_cast<unsigned int>(origin_y / dpi_scale));
   if (!window.Create(L"PassStore", origin, size)) {
     return EXIT_FAILURE;
   }
