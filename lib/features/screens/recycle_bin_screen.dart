@@ -36,7 +36,10 @@ class RecycleBinScreen extends StatelessWidget {
                         subtitle: Text(entry.account),
                         trailing: Wrap(
                           children: [
-                            TextButton(onPressed: () => onRestore(entry.id), child: const Text('恢复')),
+                            TextButton(
+                              onPressed: () => onRestore(entry.id),
+                              child: const Text('恢复'),
+                            ),
                             TextButton(
                               onPressed: () => _confirmDelete(context, entry),
                               child: const Text('永久删除'),
@@ -59,8 +62,14 @@ class RecycleBinScreen extends StatelessWidget {
         title: Text('永久删除“${entry.title}”？'),
         content: const Text('永久删除后无法恢复。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('永久删除')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('永久删除'),
+          ),
         ],
       ),
     );
@@ -78,13 +87,25 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        SizedBox(
-          height: 64,
-          child: Row(
-            children: [
-              IconButton(onPressed: onBack, icon: const Icon(Icons.arrow_back)),
-              Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-            ],
+        Material(
+          color: Colors.white,
+          child: SizedBox(
+            height: 64,
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: onBack,
+                  icon: const Icon(Icons.arrow_back),
+                ),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         const Divider(height: 1),

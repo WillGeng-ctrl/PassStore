@@ -51,27 +51,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        SizedBox(
-          height: 64,
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: widget.onBack,
-                icon: const Icon(Icons.arrow_back),
-              ),
-              const Text(
-                '设置',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-              ),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.only(right: 16),
-                child: FilledButton(
-                  onPressed: _busy ? null : _save,
-                  child: const Text('保存设置'),
+        Material(
+          color: Colors.white,
+          child: SizedBox(
+            height: 64,
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: widget.onBack,
+                  icon: const Icon(Icons.arrow_back),
                 ),
-              ),
-            ],
+                const Text(
+                  '设置',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
           ),
         ),
         const Divider(height: 1),
@@ -107,9 +102,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: _busy ? null : _test,
-                  child: const Text('测试连接'),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _busy ? null : _test,
+                        child: const Text('测试连接'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: _busy ? null : _save,
+                        child: const Text('保存设置'),
+                      ),
+                    ),
+                  ],
                 ),
                 if (_testMessage.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -117,6 +125,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _testMessage,
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
+                if (_saveMessage.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _saveMessage,
+                    style: const TextStyle(
+                      color: Color(0xff079455),
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -156,7 +174,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: Text('个人自用密码库 MVP'),
                 ),
               ]),
-              if (_saveMessage.isNotEmpty) Text(_saveMessage),
             ],
           ),
         ),
@@ -188,6 +205,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _busy = true;
       _testMessage = '';
+      _saveMessage = '';
     });
     final message = await widget.onTestWebDav(
       _url.text,
@@ -203,7 +221,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _save() async {
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _testMessage = '';
+      _saveMessage = '';
+    });
     await widget.onSaveWebDav(_url.text, _account.text, _password.text);
     if (mounted) {
       setState(() {

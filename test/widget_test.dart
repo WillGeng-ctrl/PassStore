@@ -187,4 +187,56 @@ void main() {
     expect(messageTop, greaterThan(testButtonBottom));
     expect(messageTop, lessThan(securityTop));
   });
+
+  testWidgets('WebDAV settings save button is next to connection controls', (
+    tester,
+  ) async {
+    String? savedUrl;
+    String? savedAccount;
+    String? savedPassword;
+
+    await tester.binding.setSurfaceSize(const Size(1200, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          initialSettings: WebDavSettings.empty,
+          onSaveWebDav: (url, account, appPassword) async {
+            savedUrl = url;
+            savedAccount = account;
+            savedPassword = appPassword;
+          },
+          onTestWebDav: (_, _, _) async => '连接成功',
+          onChangeMasterPassword: () async {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    await tester.enterText(
+      find.byType(TextField).at(0),
+      'https://dav.jianguoyun.com/dav/',
+    );
+    await tester.enterText(find.byType(TextField).at(1), 'user@example.com');
+    await tester.enterText(find.byType(TextField).at(2), 'app-password');
+
+    final saveButton = find.widgetWithText(FilledButton, '保存设置');
+    final passwordBottom = tester
+        .getBottomLeft(find.byType(TextField).at(2))
+        .dy;
+    final securityTop = tester.getTopLeft(find.text('安全设置')).dy;
+    final saveTop = tester.getTopLeft(saveButton).dy;
+
+    expect(saveTop, greaterThan(passwordBottom));
+    expect(saveTop, lessThan(securityTop));
+
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(savedUrl, 'https://dav.jianguoyun.com/dav/');
+    expect(savedAccount, 'user@example.com');
+    expect(savedPassword, 'app-password');
+    expect(find.text('设置已保存'), findsOneWidget);
+  });
 }
