@@ -1,6 +1,7 @@
 import '../models/category.dart';
 import '../models/vault.dart';
 import '../models/vault_entry.dart';
+import '../models/vault_webdav_credentials.dart';
 
 class VaultService {
   const VaultService._();
@@ -114,10 +115,14 @@ class VaultService {
     if (!vault.categories.any((category) => category.id == entry.categoryId)) {
       throw const VaultValidationException('条目分类不存在');
     }
-    final existingIndex = vault.entries.indexWhere((item) => item.id == entry.id);
+    final existingIndex = vault.entries.indexWhere(
+      (item) => item.id == entry.id,
+    );
     final entries = [...vault.entries];
     if (existingIndex == -1) {
-      entries.add(entry.copyWith(updatedAt: now, lastModifiedDeviceId: deviceId));
+      entries.add(
+        entry.copyWith(updatedAt: now, lastModifiedDeviceId: deviceId),
+      );
     } else {
       final existing = entries[existingIndex];
       final changedFields = <String>{};
@@ -126,7 +131,9 @@ class VaultService {
       if (existing.password != entry.password) changedFields.add('password');
       if (existing.url != entry.url) changedFields.add('url');
       if (existing.notes != entry.notes) changedFields.add('notes');
-      if (existing.categoryId != entry.categoryId) changedFields.add('categoryId');
+      if (existing.categoryId != entry.categoryId) {
+        changedFields.add('categoryId');
+      }
       if (existing.deletedAt != entry.deletedAt) changedFields.add('deletedAt');
       entries[existingIndex] = entry
           .copyWith(revision: existing.revision)
@@ -189,6 +196,30 @@ class VaultService {
             .where((entry) => entry.id != entryId)
             .toList(growable: false),
       ),
+      now: now,
+      deviceId: deviceId,
+    );
+  }
+
+  static Vault saveWebDavCredentials(
+    Vault vault, {
+    required String url,
+    required String account,
+    required String appPassword,
+    required DateTime now,
+    String deviceId = 'local',
+  }) {
+    final trimmedPassword = appPassword.trim();
+    final nextPassword = trimmedPassword.isNotEmpty
+        ? trimmedPassword
+        : vault.webDavCredentials?.appPassword ?? '';
+    final credentials = VaultWebDavCredentials(
+      url: url.trim(),
+      account: account.trim(),
+      appPassword: nextPassword,
+    );
+    return _touchVault(
+      vault.copyWith(webDavCredentials: credentials),
       now: now,
       deviceId: deviceId,
     );

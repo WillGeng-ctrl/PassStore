@@ -103,6 +103,66 @@ void main() {
     expect(find.text('已同步'), findsNothing);
   });
 
+  testWidgets('WebDAV credentials stored in vault drive sync status', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 5, 12);
+    var vault = VaultService.createEmptyVault(now: now);
+    vault = VaultService.saveWebDavCredentials(
+      vault,
+      url: 'https://dav.jianguoyun.com/dav/',
+      account: 'user@example.com',
+      appPassword: 'encrypted-in-vault',
+      now: now,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppShell(
+          vault: vault,
+          masterPassword: 'master-password',
+          encryptedPayload: null,
+          webDavSettings: WebDavSettings.empty,
+          onVaultChanged: (_) async {},
+          onMasterPasswordChanged: (_, _) async {},
+          onSaveWebDav: (_, _, _) async {},
+          onLock: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('已同步'), findsOneWidget);
+    expect(find.text('未配置同步'), findsNothing);
+  });
+
+  testWidgets('local WebDAV metadata alone does not count as configured', (
+    tester,
+  ) async {
+    final vault = VaultService.createEmptyVault(now: DateTime.utc(2026, 5, 12));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppShell(
+          vault: vault,
+          masterPassword: 'master-password',
+          encryptedPayload: null,
+          webDavSettings: const WebDavSettings(
+            url: 'https://dav.jianguoyun.com/dav/',
+            account: 'user@example.com',
+            hasAppPassword: true,
+          ),
+          onVaultChanged: (_) async {},
+          onMasterPasswordChanged: (_, _) async {},
+          onSaveWebDav: (_, _, _) async {},
+          onLock: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('未配置同步'), findsOneWidget);
+    expect(find.text('已同步'), findsNothing);
+  });
+
   testWidgets('entry dialog shows password in plain text by default', (
     tester,
   ) async {

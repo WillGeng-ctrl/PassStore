@@ -55,7 +55,8 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final syncStatus = widget.webDavSettings.isConfigured ? '已同步' : '未配置同步';
+    final webDavSettings = _effectiveWebDavSettings();
+    final syncStatus = webDavSettings.isConfigured ? '已同步' : '未配置同步';
     final child = switch (_view) {
       _ShellView.main => MainVaultScreen(
         vault: _vault,
@@ -82,7 +83,7 @@ class _AppShellState extends State<AppShell> {
         onBack: () => setState(() => _view = _ShellView.main),
       ),
       _ShellView.settings => SettingsScreen(
-        initialSettings: widget.webDavSettings,
+        initialSettings: webDavSettings,
         onSaveWebDav: widget.onSaveWebDav,
         onTestWebDav: _testWebDav,
         onChangeMasterPassword: _changeMasterPassword,
@@ -90,6 +91,22 @@ class _AppShellState extends State<AppShell> {
       ),
     };
     return Scaffold(body: child);
+  }
+
+  WebDavSettings _effectiveWebDavSettings() {
+    final credentials = _vault.webDavCredentials;
+    if (credentials == null) {
+      return widget.webDavSettings.copyWith(hasAppPassword: false);
+    }
+    return WebDavSettings(
+      url: credentials.url.isNotEmpty
+          ? credentials.url
+          : widget.webDavSettings.url,
+      account: credentials.account.isNotEmpty
+          ? credentials.account
+          : widget.webDavSettings.account,
+      hasAppPassword: credentials.hasAppPassword,
+    );
   }
 
   Future<void> _newEntry(String categoryId) async {
@@ -198,11 +215,15 @@ class _AppShellState extends State<AppShell> {
     String account,
     String appPassword,
   ) async {
-    if (appPassword.isEmpty) return '请输入应用密码后测试连接';
+    final storedPassword = _vault.webDavCredentials?.appPassword ?? '';
+    final effectivePassword = appPassword.trim().isNotEmpty
+        ? appPassword
+        : storedPassword;
+    if (effectivePassword.isEmpty) return '请输入应用密码后测试连接';
     final result = await const WebDavSyncService().testConnection(
       url: url,
       account: account,
-      appPassword: appPassword,
+      appPassword: effectivePassword,
     );
     return result.message;
   }

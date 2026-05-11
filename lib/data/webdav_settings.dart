@@ -14,7 +14,8 @@ class WebDavSettings {
   final String account;
   final bool hasAppPassword;
 
-  bool get isConfigured => url.trim().isNotEmpty && account.trim().isNotEmpty && hasAppPassword;
+  bool get isConfigured =>
+      url.trim().isNotEmpty && account.trim().isNotEmpty && hasAppPassword;
 
   WebDavSettings copyWith({
     String? url,
@@ -28,44 +29,53 @@ class WebDavSettings {
     );
   }
 
-  static const empty = WebDavSettings(url: 'https://dav.jianguoyun.com/dav/', account: '', hasAppPassword: false);
+  static const empty = WebDavSettings(
+    url: 'https://dav.jianguoyun.com/dav/',
+    account: '',
+    hasAppPassword: false,
+  );
 }
 
 class WebDavSettingsStore {
-  const WebDavSettingsStore();
+  const WebDavSettingsStore({Directory? baseDirectory})
+    : _baseDirectory = baseDirectory;
+
+  final Directory? _baseDirectory;
 
   Future<WebDavSettings> load() async {
     final file = _settingsFile();
     if (!await file.exists()) return WebDavSettings.empty;
     final json = jsonDecode(await file.readAsString()) as Map<String, Object?>;
-    final password = json['appPassword'] as String?;
+    final legacyPassword = json['appPassword'] as String?;
+    final hasAppPassword =
+        json['hasAppPassword'] as bool? ??
+        (legacyPassword != null && legacyPassword.isNotEmpty);
     return WebDavSettings(
       url: json['url'] as String? ?? WebDavSettings.empty.url,
       account: json['account'] as String? ?? '',
-      hasAppPassword: password != null && password.isNotEmpty,
+      hasAppPassword: hasAppPassword,
     );
   }
 
-  Future<String?> readPassword() async {
+  Future<String?> readLegacyPassword() async {
     final file = _settingsFile();
     if (!await file.exists()) return null;
     final json = jsonDecode(await file.readAsString()) as Map<String, Object?>;
     return json['appPassword'] as String?;
   }
 
-  Future<void> save({
+  Future<void> saveMetadata({
     required String url,
     required String account,
-    String? appPassword,
+    required bool hasAppPassword,
   }) async {
     final file = _settingsFile();
     await file.parent.create(recursive: true);
-    final existingPassword = await readPassword();
     await file.writeAsString(
       const JsonEncoder.withIndent('  ').convert({
         'url': url,
         'account': account,
-        'appPassword': appPassword != null && appPassword.isNotEmpty ? appPassword : existingPassword,
+        'hasAppPassword': hasAppPassword,
       }),
       flush: true,
     );
@@ -76,6 +86,8 @@ class WebDavSettingsStore {
   }
 
   Directory _appDataDirectory() {
+    final baseDirectory = _baseDirectory;
+    if (baseDirectory != null) return baseDirectory;
     if (Platform.isWindows) {
       final appData = Platform.environment['APPDATA'];
       if (appData != null && appData.isNotEmpty) {
@@ -85,7 +97,9 @@ class WebDavSettingsStore {
     if (Platform.isMacOS) {
       final home = Platform.environment['HOME'];
       if (home != null && home.isNotEmpty) {
-        return Directory(p.join(home, 'Library', 'Application Support', 'PassStore'));
+        return Directory(
+          p.join(home, 'Library', 'Application Support', 'PassStore'),
+        );
       }
     }
     return Directory(p.join(Directory.current.path, '.passstore'));

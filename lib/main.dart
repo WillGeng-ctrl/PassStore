@@ -155,35 +155,84 @@ class _PassStoreAppState extends State<PassStoreApp> {
   }
 
   Future<void> _createVault(String masterPassword) async {
-    final vault = VaultService.createEmptyVault(now: DateTime.now().toUtc());
+    var vault = VaultService.createEmptyVault(now: DateTime.now().toUtc());
+    if (widget.enablePersistence) {
+      final legacyPassword = await _settingsStore.readLegacyPassword();
+      if (legacyPassword != null && legacyPassword.isNotEmpty) {
+        vault = VaultService.saveWebDavCredentials(
+          vault,
+          url: _webDavSettings.url,
+          account: _webDavSettings.account,
+          appPassword: legacyPassword,
+          now: DateTime.now().toUtc(),
+        );
+      }
+    }
     final payload = await _crypto.encryptString(
       plaintext: jsonEncode(vault.toJson()),
       masterPassword: masterPassword,
     );
-    if (widget.enablePersistence) await _repository.writeEncrypted(payload);
+    final webDavSettings = _webDavSettingsFromVault(vault, _webDavSettings);
+    if (widget.enablePersistence) {
+      await _repository.writeEncrypted(payload);
+      await _settingsStore.saveMetadata(
+        url: webDavSettings.url,
+        account: webDavSettings.account,
+        hasAppPassword: webDavSettings.hasAppPassword,
+      );
+    }
     setState(() {
       _vault = vault;
       _masterPassword = masterPassword;
       _encryptedPayload = payload;
       _hasVault = true;
+      _webDavSettings = webDavSettings;
     });
   }
 
   Future<void> _unlockVault(String masterPassword) async {
-    final payload = _encryptedPayload ?? await _repository.readEncrypted();
+    var payload = _encryptedPayload ?? await _repository.readEncrypted();
     if (payload == null) throw const VaultCryptoException('没有可解锁的密码库');
     final plaintext = await _crypto.decryptString(
       payload,
       masterPassword: masterPassword,
     );
-    final vault = Vault.fromJson(
+    var vault = Vault.fromJson(
       (jsonDecode(plaintext) as Map<String, Object?>).cast<String, Object?>(),
     );
+    if (widget.enablePersistence) {
+      final legacyPassword = await _settingsStore.readLegacyPassword();
+      if (legacyPassword != null &&
+          legacyPassword.isNotEmpty &&
+          !(vault.webDavCredentials?.hasAppPassword ?? false)) {
+        vault = VaultService.saveWebDavCredentials(
+          vault,
+          url: _webDavSettings.url,
+          account: _webDavSettings.account,
+          appPassword: legacyPassword,
+          now: DateTime.now().toUtc(),
+        );
+        payload = await _crypto.encryptString(
+          plaintext: jsonEncode(vault.toJson()),
+          masterPassword: masterPassword,
+        );
+        await _repository.writeEncrypted(payload);
+      }
+    }
+    final webDavSettings = _webDavSettingsFromVault(vault, _webDavSettings);
+    if (widget.enablePersistence) {
+      await _settingsStore.saveMetadata(
+        url: webDavSettings.url,
+        account: webDavSettings.account,
+        hasAppPassword: webDavSettings.hasAppPassword,
+      );
+    }
     setState(() {
       _vault = vault;
       _masterPassword = masterPassword;
       _encryptedPayload = payload;
       _hasVault = true;
+      _webDavSettings = webDavSettings;
     });
   }
 
@@ -195,9 +244,11 @@ class _PassStoreAppState extends State<PassStoreApp> {
       masterPassword: password,
     );
     if (widget.enablePersistence) await _repository.writeEncrypted(payload);
+    final webDavSettings = _webDavSettingsFromVault(vault, _webDavSettings);
     setState(() {
       _vault = vault;
       _encryptedPayload = payload;
+      _webDavSettings = webDavSettings;
     });
   }
 
@@ -227,21 +278,53 @@ class _PassStoreAppState extends State<PassStoreApp> {
     String account,
     String appPassword,
   ) async {
-    if (widget.enablePersistence) {
-      await _settingsStore.save(
+    final currentVault = _vault;
+    WebDavSettings webDavSettings;
+    if (currentVault != null) {
+      final vault = VaultService.saveWebDavCredentials(
+        currentVault,
         url: url,
         account: account,
         appPassword: appPassword,
+        now: DateTime.now().toUtc(),
       );
-    }
-    setState(() {
-      _webDavSettings = WebDavSettings(
+      await _persistVault(vault);
+      webDavSettings = _webDavSettingsFromVault(vault, _webDavSettings);
+    } else {
+      webDavSettings = WebDavSettings(
         url: url,
         account: account,
         hasAppPassword:
             appPassword.isNotEmpty || _webDavSettings.hasAppPassword,
       );
+    }
+    if (widget.enablePersistence) {
+      await _settingsStore.saveMetadata(
+        url: webDavSettings.url,
+        account: webDavSettings.account,
+        hasAppPassword: webDavSettings.hasAppPassword,
+      );
+    }
+    setState(() {
+      _webDavSettings = webDavSettings;
     });
+  }
+
+  WebDavSettings _webDavSettingsFromVault(
+    Vault vault,
+    WebDavSettings fallback,
+  ) {
+    final credentials = vault.webDavCredentials;
+    if (credentials == null) {
+      return fallback.copyWith(hasAppPassword: false);
+    }
+    return WebDavSettings(
+      url: credentials.url.isNotEmpty ? credentials.url : fallback.url,
+      account: credentials.account.isNotEmpty
+          ? credentials.account
+          : fallback.account,
+      hasAppPassword: credentials.hasAppPassword,
+    );
   }
 
   void _lock() {
