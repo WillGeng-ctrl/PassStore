@@ -951,7 +951,7 @@ void main() {
       ),
     );
 
-    expect(find.text('版本号：1.0.0.0'), findsOneWidget);
+    expect(find.text('版本号：1.0.0+0'), findsOneWidget);
     expect(find.text('联系作者：https://github.com/WillGeng-ctrl/PassStore/issues'), findsOneWidget);
   });
 }
