@@ -165,6 +165,31 @@ void main() {
     expect(find.byType(Chip), findsNothing);
   });
 
+  testWidgets('category manager exposes a custom category add action', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CategoryManagerScreen(
+          categories: Category.builtIns(DateTime.utc(2026, 5, 12)),
+          onAdd: (_) {},
+          onRename: (_, _) {},
+          onDelete: (_) {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    final customHeaderCenter = tester.getCenter(find.text('自定义分类')).dy;
+    final emptyStateTop = tester.getTopLeft(find.text('还没有自定义分类')).dy;
+    final addButton = find.widgetWithText(FilledButton, '新建自定义分类');
+    final addButtonTop = tester.getTopLeft(addButton).dy;
+    final addButtonCenter = tester.getCenter(addButton).dy;
+
+    expect(addButtonTop, lessThan(emptyStateTop));
+    expect((addButtonCenter - customHeaderCenter).abs(), lessThan(20));
+  });
+
   testWidgets('category manager can add a custom category with save', (
     tester,
   ) async {
@@ -182,7 +207,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.widgetWithText(FilledButton, '新建分类'));
+    await tester.tap(find.widgetWithText(FilledButton, '新建自定义分类'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '工作');
     await tester.tap(find.widgetWithText(FilledButton, '保存'));
@@ -208,7 +233,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.widgetWithText(FilledButton, '新建分类'));
+    await tester.tap(find.widgetWithText(FilledButton, '新建自定义分类'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), '工作');
     await tester.testTextInput.receiveAction(TextInputAction.done);

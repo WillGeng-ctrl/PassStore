@@ -28,11 +28,6 @@ class CategoryManagerScreen extends StatelessWidget {
         .toList();
     return _SettingsLikePage(
       title: '管理分类',
-      action: FilledButton.icon(
-        onPressed: () => _askAdd(context),
-        icon: const Icon(Icons.add),
-        label: const Text('新建分类'),
-      ),
       onBack: onBack,
       child: ListView(
         padding: const EdgeInsets.all(24),
@@ -40,7 +35,7 @@ class CategoryManagerScreen extends StatelessWidget {
           _section('默认分类'),
           ...builtIns.map((category) => _row(context, category, locked: true)),
           const SizedBox(height: 24),
-          _section('自定义分类'),
+          _customSectionHeader(context),
           if (customs.isEmpty)
             const Padding(padding: EdgeInsets.all(16), child: Text('还没有自定义分类')),
           ...customs.map((category) => _row(context, category)),
@@ -56,6 +51,26 @@ class CategoryManagerScreen extends StatelessWidget {
       style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
     ),
   );
+
+  Widget _customSectionHeader(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+      child: Row(
+        children: [
+          const Text(
+            '自定义分类',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+          const Spacer(),
+          FilledButton.icon(
+            onPressed: () => _askAdd(context),
+            icon: const Icon(Icons.add),
+            label: const Text('新建自定义分类'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _row(BuildContext context, Category category, {bool locked = false}) {
     return Card(
@@ -153,13 +168,11 @@ class _SettingsLikePage extends StatelessWidget {
     required this.title,
     required this.child,
     required this.onBack,
-    this.action,
   });
 
   final String title;
   final Widget child;
   final VoidCallback onBack;
-  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -183,12 +196,6 @@ class _SettingsLikePage extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const Spacer(),
-                if (action != null)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: action!,
-                  ),
               ],
             ),
           ),
