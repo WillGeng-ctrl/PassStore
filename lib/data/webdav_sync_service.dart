@@ -15,12 +15,17 @@ class WebDavSyncService {
     final client = _client ?? http.Client();
     try {
       final response = await client.send(
-        http.Request('PROPFIND', Uri.parse(url))
+        http.Request('PROPFIND', _collectionUri(url))
           ..headers.addAll(_authHeaders(account, appPassword))
           ..headers['Depth'] = '0',
       );
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return const WebDavConnectionResult.ok();
+      }
+      if (response.statusCode == 401) {
+        return const WebDavConnectionResult.failed(
+          '连接失败：HTTP 401。坚果云 WebDAV 登录名需要填写注册邮箱，密码需要填写第三方应用密码。请确认没有复制到首尾空格。',
+        );
       }
       return WebDavConnectionResult.failed('连接失败：HTTP ${response.statusCode}');
     } catch (error) {
@@ -35,7 +40,10 @@ class WebDavSyncService {
     required String account,
     required String appPassword,
   }) async {
-    final response = await http.get(Uri.parse(url), headers: _authHeaders(account, appPassword));
+    final response = await http.get(
+      _uri(url),
+      headers: _authHeaders(account, appPassword),
+    );
     if (response.statusCode != 200) {
       throw WebDavException('下载失败：HTTP ${response.statusCode}');
     }
@@ -49,7 +57,7 @@ class WebDavSyncService {
     required String body,
   }) async {
     final response = await http.put(
-      Uri.parse(url),
+      _uri(url),
       headers: {
         ..._authHeaders(account, appPassword),
         'Content-Type': 'application/json; charset=utf-8',
@@ -62,8 +70,26 @@ class WebDavSyncService {
   }
 
   Map<String, String> _authHeaders(String account, String appPassword) {
-    final token = base64Encode(utf8.encode('$account:$appPassword'));
+    final token = base64Encode(
+      utf8.encode('${account.trim()}:${appPassword.trim()}'),
+    );
     return {'Authorization': 'Basic $token'};
+  }
+
+  Uri _collectionUri(String rawUrl) {
+    final uri = _uri(rawUrl);
+    final path = uri.path.isEmpty || uri.path == '/'
+        ? '/dav/'
+        : uri.path.endsWith('/')
+        ? uri.path
+        : '${uri.path}/';
+    return uri.replace(path: path);
+  }
+
+  Uri _uri(String rawUrl) {
+    final value = rawUrl.trim();
+    final normalized = value.contains('://') ? value : 'https://$value';
+    return Uri.parse(normalized);
   }
 }
 
@@ -72,7 +98,8 @@ class WebDavConnectionResult {
 
   const WebDavConnectionResult.ok() : this._(ok: true, message: '连接成功');
 
-  const WebDavConnectionResult.failed(String message) : this._(ok: false, message: message);
+  const WebDavConnectionResult.failed(String message)
+    : this._(ok: false, message: message);
 
   final bool ok;
   final String message;
