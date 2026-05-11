@@ -10,6 +10,7 @@ import 'package:passstore/features/screens/category_manager_screen.dart';
 import 'package:passstore/features/screens/create_vault_screen.dart';
 import 'package:passstore/features/screens/edit_entry_dialog.dart';
 import 'package:passstore/features/screens/main_vault_screen.dart';
+import 'package:passstore/features/screens/recycle_bin_screen.dart';
 import 'package:passstore/features/screens/settings_screen.dart';
 import 'package:passstore/features/screens/unlock_screen.dart';
 import 'package:passstore/main.dart';
@@ -240,6 +241,50 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(addedName, '工作');
+  });
+
+  testWidgets('subpage back buttons leave leading margin', (tester) async {
+    Future<double> backButtonLeftFor(Widget child) async {
+      await tester.pumpWidget(MaterialApp(home: child));
+      final button = find
+          .ancestor(
+            of: find.byIcon(Icons.arrow_back),
+            matching: find.byType(IconButton),
+          )
+          .first;
+      return tester.getTopLeft(button).dx;
+    }
+
+    final settingsLeft = await backButtonLeftFor(
+      SettingsScreen(
+        initialSettings: WebDavSettings.empty,
+        onSaveWebDav: (_, _, _) async {},
+        onTestWebDav: (_, _, _) async => '连接成功',
+        onChangeMasterPassword: () async {},
+        onBack: () {},
+      ),
+    );
+    final categoriesLeft = await backButtonLeftFor(
+      CategoryManagerScreen(
+        categories: Category.builtIns(DateTime.utc(2026, 5, 12)),
+        onAdd: (_) {},
+        onRename: (_, _) {},
+        onDelete: (_) {},
+        onBack: () {},
+      ),
+    );
+    final recycleLeft = await backButtonLeftFor(
+      RecycleBinScreen(
+        entries: const [],
+        onRestore: (_) {},
+        onDeleteForever: (_) {},
+        onBack: () {},
+      ),
+    );
+
+    expect(settingsLeft, greaterThanOrEqualTo(16));
+    expect(categoriesLeft, greaterThanOrEqualTo(16));
+    expect(recycleLeft, greaterThanOrEqualTo(16));
   });
 
   testWidgets('unconfigured WebDAV settings show unconfigured sync status', (

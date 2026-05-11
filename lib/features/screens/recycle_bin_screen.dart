@@ -93,6 +93,7 @@ class _Header extends StatelessWidget {
             height: 64,
             child: Row(
               children: [
+                const SizedBox(width: 20),
                 IconButton(
                   onPressed: onBack,
                   icon: const Icon(Icons.arrow_back),

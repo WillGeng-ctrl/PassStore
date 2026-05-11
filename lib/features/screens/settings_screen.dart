@@ -57,6 +57,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             height: 64,
             child: Row(
               children: [
+                const SizedBox(width: 20),
                 IconButton(
                   onPressed: widget.onBack,
                   icon: const Icon(Icons.arrow_back),
