@@ -845,7 +845,7 @@ void main() {
     expect(find.text('设置已保存'), findsOneWidget);
   });
 
-  testWidgets('security timers can be adjusted from settings', (tester) async {
+  testWidgets('auto lock uses a compact setting control', (tester) async {
     final saved = <AppPreferences>[];
 
     await tester.binding.setSurfaceSize(const Size(1200, 1100));
@@ -867,18 +867,23 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byType(DropdownButtonFormField<int>).at(0));
+    expect(find.text('剪贴板清空时间'), findsNothing);
+    expect(find.byType(DropdownButtonFormField<int>), findsNothing);
+
+    final autoLockDropdown = find.byType(DropdownButton<int>);
+    expect(autoLockDropdown, findsOneWidget);
+    expect(tester.getSize(autoLockDropdown).height, lessThanOrEqualTo(40));
+
+    await tester.tap(autoLockDropdown);
     await tester.pumpAndSettle();
     await tester.tap(find.text('永不锁定').last);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byType(DropdownButtonFormField<int>).at(1));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('1 分钟').last);
-    await tester.pumpAndSettle();
-
     expect(saved.last.autoLockMinutes, 0);
-    expect(saved.last.clipboardClearSeconds, 60);
+    expect(
+      saved.last.clipboardClearSeconds,
+      AppPreferences.defaults.clipboardClearSeconds,
+    );
     expect(find.text('安全设置已保存'), findsOneWidget);
   });
 

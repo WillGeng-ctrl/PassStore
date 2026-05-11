@@ -38,7 +38,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _account;
   final _password = TextEditingController();
   late int _autoLockMinutes;
-  late int _clipboardClearSeconds;
   String _testMessage = '';
   String _saveMessage = '';
   String _preferencesMessage = '';
@@ -53,7 +52,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _url = TextEditingController(text: widget.initialSettings.url);
     _account = TextEditingController(text: widget.initialSettings.account);
     _autoLockMinutes = widget.initialPreferences.autoLockMinutes;
-    _clipboardClearSeconds = widget.initialPreferences.clipboardClearSeconds;
   }
 
   @override
@@ -167,45 +165,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: widget.onChangeMasterPassword,
                 ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<int>(
-                  initialValue: _autoLockMinutes,
-                  decoration: const InputDecoration(labelText: '自动锁定时间'),
-                  items: _autoLockOptions.entries
-                      .map(
-                        (entry) => DropdownMenuItem(
-                          value: entry.key,
-                          child: Text(entry.value),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: _preferencesBusy
-                      ? null
-                      : (value) {
-                          if (value == null) return;
-                          setState(() => _autoLockMinutes = value);
-                          _savePreferences();
-                        },
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<int>(
-                  initialValue: _clipboardClearSeconds,
-                  decoration: const InputDecoration(labelText: '剪贴板清空时间'),
-                  items: _clipboardClearOptions.entries
-                      .map(
-                        (entry) => DropdownMenuItem(
-                          value: entry.key,
-                          child: Text(entry.value),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: _preferencesBusy
-                      ? null
-                      : (value) {
-                          if (value == null) return;
-                          setState(() => _clipboardClearSeconds = value);
-                          _savePreferences();
-                        },
+                const SizedBox(height: 8),
+                _compactPreferenceRow(
+                  title: '自动锁定时间',
+                  subtitle: '无操作后自动回到解锁页',
+                  trailing: _autoLockDropdown(context),
                 ),
                 if (_preferencesMessage.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -291,7 +255,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await widget.onSavePreferences(
       AppPreferences(
         autoLockMinutes: _autoLockMinutes,
-        clipboardClearSeconds: _clipboardClearSeconds,
+        clipboardClearSeconds: widget.initialPreferences.clipboardClearSeconds,
       ),
     );
     if (mounted) {
@@ -357,6 +321,78 @@ class _SettingsScreenState extends State<SettingsScreen> {
       });
     }
   }
+
+  Widget _compactPreferenceRow({
+    required String title,
+    required String subtitle,
+    required Widget trailing,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xff64748b),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xffcbd5e1)),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: trailing,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _autoLockDropdown(BuildContext context) {
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<int>(
+        value: _autoLockMinutes,
+        isDense: true,
+        itemHeight: kMinInteractiveDimension,
+        iconSize: 18,
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: const Color(0xff0f172a)),
+        items: _autoLockOptions.entries
+            .map(
+              (entry) =>
+                  DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+            )
+            .toList(),
+        onChanged: _preferencesBusy
+            ? null
+            : (value) {
+                if (value == null) return;
+                setState(() => _autoLockMinutes = value);
+                _savePreferences();
+              },
+      ),
+    );
+  }
 }
 
 const _autoLockOptions = <int, String>{
@@ -365,12 +401,4 @@ const _autoLockOptions = <int, String>{
   15: '15 分钟',
   30: '30 分钟',
   60: '1 小时',
-};
-
-const _clipboardClearOptions = <int, String>{
-  0: '不自动清空',
-  15: '15 秒',
-  30: '30 秒',
-  60: '1 分钟',
-  300: '5 分钟',
 };
