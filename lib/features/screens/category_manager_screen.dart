@@ -36,6 +36,7 @@ class CategoryManagerScreen extends StatelessWidget {
           ...builtIns.map((category) => _row(context, category, locked: true)),
           const SizedBox(height: 24),
           _customSectionHeader(context),
+          _customAddAction(context),
           if (customs.isEmpty)
             const Padding(padding: EdgeInsets.all(16), child: Text('还没有自定义分类')),
           ...customs.map((category) => _row(context, category)),
@@ -55,19 +56,23 @@ class CategoryManagerScreen extends StatelessWidget {
   Widget _customSectionHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-      child: Row(
-        children: [
-          const Text(
-            '自定义分类',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-          ),
-          const Spacer(),
-          FilledButton.icon(
-            onPressed: () => _askAdd(context),
-            icon: const Icon(Icons.add),
-            label: const Text('新建自定义分类'),
-          ),
-        ],
+      child: const Text(
+        '自定义分类',
+        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+
+  Widget _customAddAction(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+        child: FilledButton.icon(
+          onPressed: () => _askAdd(context),
+          icon: const Icon(Icons.add),
+          label: const Text('新建自定义分类'),
+        ),
       ),
     );
   }

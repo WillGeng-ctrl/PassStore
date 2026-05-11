@@ -185,10 +185,9 @@ void main() {
     final emptyStateTop = tester.getTopLeft(find.text('还没有自定义分类')).dy;
     final addButton = find.widgetWithText(FilledButton, '新建自定义分类');
     final addButtonTop = tester.getTopLeft(addButton).dy;
-    final addButtonCenter = tester.getCenter(addButton).dy;
 
+    expect(addButtonTop, greaterThan(customHeaderCenter));
     expect(addButtonTop, lessThan(emptyStateTop));
-    expect((addButtonCenter - customHeaderCenter).abs(), lessThan(20));
   });
 
   testWidgets('category manager can add a custom category with save', (
