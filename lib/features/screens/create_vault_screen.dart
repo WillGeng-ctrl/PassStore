@@ -40,18 +40,11 @@ class _CreateVaultScreenState extends State<CreateVaultScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Center(
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: const Color(0xff2563eb),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.key_outlined,
-                        size: 36,
-                        color: Colors.white,
-                      ),
+                    child: Image.asset(
+                      'Logo/LogoA_256.png',
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.contain,
                     ),
                   ),
                   const SizedBox(height: 16),

@@ -76,7 +76,9 @@ class WebDavSyncService implements VaultRemoteStore {
         _vaultUri(url),
         headers: _authHeaders(account, appPassword),
       );
-      if (response.statusCode == 404) return null;
+      if (response.statusCode == 404 || response.statusCode == 409) {
+        return null;
+      }
       if (response.statusCode != 200) {
         throw WebDavException('下载失败：HTTP ${response.statusCode}');
       }
@@ -133,7 +135,8 @@ class WebDavSyncService implements VaultRemoteStore {
     );
     if (response.statusCode == 201 ||
         response.statusCode == 200 ||
-        response.statusCode == 405) {
+        response.statusCode == 405 ||
+        response.statusCode == 409) {
       return;
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {

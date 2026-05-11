@@ -42,10 +42,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late int _autoLockMinutes;
   _ConnectionTestStatus _testStatus = _ConnectionTestStatus.idle;
   Timer? _testStatusResetTimer;
+  _SaveSettingsStatus _saveStatus = _SaveSettingsStatus.idle;
+  Timer? _saveStatusResetTimer;
   _BackupActionStatus _backupStatus = _BackupActionStatus.idle;
   _BackupAction? _backupStatusAction;
   Timer? _backupStatusResetTimer;
-  String _saveMessage = '';
   bool _testingWebDav = false;
   bool _savingWebDav = false;
   bool _preferencesBusy = false;
@@ -61,6 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     _testStatusResetTimer?.cancel();
+    _saveStatusResetTimer?.cancel();
     _backupStatusResetTimer?.cancel();
     _url.dispose();
     _account.dispose();
@@ -128,24 +130,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     Expanded(child: _testConnectionButton()),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: _savingWebDav ? null : _save,
-                        child: const Text('保存设置'),
-                      ),
-                    ),
+                    Expanded(child: _saveSettingsButton()),
                   ],
                 ),
-                if (_saveMessage.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _saveMessage,
-                    style: const TextStyle(
-                      color: Color(0xff079455),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 12),
                 const Text('云端只保存加密后的 vault 文件，坚果云无法读取密码内容。'),
               ]),
@@ -363,7 +350,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _testingWebDav = true;
       _testStatus = _ConnectionTestStatus.testing;
-      _saveMessage = '';
     });
     final message = await widget
         .onTestWebDav(_url.text, _account.text, _password.text)
@@ -381,18 +367,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _save() async {
     _testStatusResetTimer?.cancel();
+    _saveStatusResetTimer?.cancel();
     setState(() {
       _savingWebDav = true;
       _testStatus = _ConnectionTestStatus.idle;
-      _saveMessage = '';
+      _saveStatus = _SaveSettingsStatus.saving;
     });
-    await widget.onSaveWebDav(_url.text, _account.text, _password.text);
-    if (mounted) {
+    try {
+      await widget.onSaveWebDav(_url.text, _account.text, _password.text);
+      if (!mounted) return;
       setState(() {
-        _saveMessage = '设置已保存';
+        _saveStatus = _SaveSettingsStatus.success;
+        _savingWebDav = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _saveStatus = _SaveSettingsStatus.failure;
         _savingWebDav = false;
       });
     }
+    _scheduleSaveStatusReset();
   }
 
   Widget _testConnectionButton() {
@@ -426,6 +421,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _ConnectionTestStatus.failure => '连接失败',
       _ConnectionTestStatus.idle => '测试连接',
     };
+  }
+
+  Widget _saveSettingsButton() {
+    return FilledButton(
+      onPressed: _savingWebDav ? null : _save,
+      style: _saveSettingsButtonStyle(),
+      child: Text(_saveSettingsButtonLabel),
+    );
+  }
+
+  ButtonStyle? _saveSettingsButtonStyle() {
+    final Color? color = switch (_saveStatus) {
+      _SaveSettingsStatus.success => _connectionSuccessColor,
+      _SaveSettingsStatus.failure => _connectionFailureColor,
+      _ => null,
+    };
+
+    if (color == null) return null;
+
+    return FilledButton.styleFrom(
+      backgroundColor: color,
+      foregroundColor: Colors.white,
+    );
+  }
+
+  String get _saveSettingsButtonLabel {
+    return switch (_saveStatus) {
+      _SaveSettingsStatus.saving => '保存中...',
+      _SaveSettingsStatus.success => '已保存',
+      _SaveSettingsStatus.failure => '保存失败',
+      _SaveSettingsStatus.idle => '保存设置',
+    };
+  }
+
+  void _scheduleSaveStatusReset() {
+    _saveStatusResetTimer?.cancel();
+    _saveStatusResetTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() => _saveStatus = _SaveSettingsStatus.idle);
+    });
   }
 
   void _scheduleTestStatusReset() {
@@ -513,6 +548,8 @@ const _connectionSuccessColor = Color(0xff079455);
 const _connectionFailureColor = Color(0xffdc2626);
 
 enum _ConnectionTestStatus { idle, testing, success, failure }
+
+enum _SaveSettingsStatus { idle, saving, success, failure }
 
 enum _BackupAction { export, import }
 

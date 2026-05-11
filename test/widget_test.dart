@@ -26,6 +26,8 @@ void main() {
     await tester.pumpWidget(const PassStoreApp());
 
     expect(find.text('PassStore'), findsOneWidget);
+    expect(find.image(const AssetImage('Logo/LogoA_256.png')), findsOneWidget);
+    expect(find.byIcon(Icons.key_outlined), findsNothing);
     expect(find.text('创建密码库'), findsWidgets);
   });
 
@@ -69,6 +71,15 @@ void main() {
     final passwordField = tester.widget<TextField>(find.byType(TextField));
 
     expect(passwordField.autofocus, isTrue);
+  });
+
+  testWidgets('unlock screen shows the branded logo image', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: UnlockScreen(onUnlock: (_) async {})),
+    );
+
+    expect(find.image(const AssetImage('Logo/LogoA_256.png')), findsOneWidget);
+    expect(find.byIcon(Icons.lock_outline), findsNothing);
   });
 
   testWidgets('pressing Enter submits the unlock password', (tester) async {
@@ -929,12 +940,69 @@ void main() {
     expect(saveTop, lessThan(securityTop));
 
     await tester.tap(saveButton);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
 
     expect(savedUrl, 'https://dav.jianguoyun.com/dav/');
     expect(savedAccount, 'user@example.com');
     expect(savedPassword, 'app-password');
-    expect(find.text('设置已保存'), findsOneWidget);
+    expect(find.text('设置已保存'), findsNothing);
+    expect(find.widgetWithText(FilledButton, '已保存'), findsOneWidget);
+
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '已保存'),
+    );
+    expect(
+      button.style?.backgroundColor?.resolve(<WidgetState>{}),
+      const Color(0xff079455),
+    );
+
+    await tester.pump(const Duration(milliseconds: 2100));
+    await tester.pump();
+
+    expect(find.widgetWithText(FilledButton, '保存设置'), findsOneWidget);
+  });
+
+  testWidgets('WebDAV settings save failure appears on the save button', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          initialSettings: WebDavSettings.empty,
+          initialPreferences: AppPreferences.defaults,
+          onSaveWebDav: (_, _, _) async => throw Exception('save failed'),
+          onTestWebDav: (_, _, _) async => '连接成功',
+          onSavePreferences: (_) async {},
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
+          onChangeMasterPassword: () async {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, '保存设置'));
+    await tester.pump();
+    await tester.pump();
+
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '保存失败'),
+    );
+
+    expect(find.text('设置已保存'), findsNothing);
+    expect(
+      button.style?.backgroundColor?.resolve(<WidgetState>{}),
+      const Color(0xffdc2626),
+    );
+
+    await tester.pump(const Duration(milliseconds: 2100));
+    await tester.pump();
+
+    expect(find.widgetWithText(FilledButton, '保存设置'), findsOneWidget);
   });
 
   testWidgets('auto lock uses a compact setting control', (tester) async {

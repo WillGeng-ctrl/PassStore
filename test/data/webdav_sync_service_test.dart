@@ -94,6 +94,20 @@ void main() {
     expect(file, isNull);
   });
 
+  test('returns null when WebDAV reports a missing parent directory', () async {
+    final service = WebDavSyncService(
+      client: MockClient((_) async => http.Response('', 409)),
+    );
+
+    final file = await service.downloadVaultFile(
+      url: 'https://dav.jianguoyun.com/dav/',
+      account: 'user@example.com',
+      appPassword: 'app-password',
+    );
+
+    expect(file, isNull);
+  });
+
   test(
     'creates the PassStore directory before uploading the vault file',
     () async {
@@ -121,6 +135,29 @@ void main() {
         urls[1],
         'https://dav.jianguoyun.com/dav/PassStore/passstore.vault',
       );
+    },
+  );
+
+  test(
+    'continues upload when the WebDAV directory already exists as a conflict',
+    () async {
+      final methods = <String>[];
+      final service = WebDavSyncService(
+        client: MockClient((request) async {
+          methods.add(request.method);
+          if (request.method == 'MKCOL') return http.Response('', 409);
+          return http.Response('', 201);
+        }),
+      );
+
+      await service.uploadVault(
+        url: 'https://dav.jianguoyun.com/dav/',
+        account: 'user@example.com',
+        appPassword: 'app-password',
+        body: '{"version":1}',
+      );
+
+      expect(methods, ['MKCOL', 'PUT']);
     },
   );
 }
