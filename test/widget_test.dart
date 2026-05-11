@@ -8,6 +8,7 @@ import 'package:passstore/features/app_shell.dart';
 import 'package:passstore/features/screens/create_vault_screen.dart';
 import 'package:passstore/features/screens/edit_entry_dialog.dart';
 import 'package:passstore/features/screens/main_vault_screen.dart';
+import 'package:passstore/features/screens/settings_screen.dart';
 import 'package:passstore/features/screens/unlock_screen.dart';
 import 'package:passstore/main.dart';
 
@@ -134,5 +135,38 @@ void main() {
         .singleWhere((field) => field.decoration?.labelText == '密码');
 
     expect(passwordField.obscureText, isFalse);
+  });
+
+  testWidgets('WebDAV test failure appears below the test button', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          initialSettings: WebDavSettings.empty,
+          onSaveWebDav: (_, _, _) async {},
+          onTestWebDav: (_, _, _) async => '连接失败 401',
+          onChangeMasterPassword: () async {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField).at(1), 'user@example.com');
+    await tester.enterText(find.byType(TextField).at(2), 'bad-app-password');
+    await tester.tap(find.widgetWithText(OutlinedButton, '测试连接'));
+    await tester.pumpAndSettle();
+
+    final messageTop = tester.getTopLeft(find.text('连接失败 401')).dy;
+    final testButtonBottom = tester
+        .getBottomLeft(find.widgetWithText(OutlinedButton, '测试连接'))
+        .dy;
+    final securityTop = tester.getTopLeft(find.text('安全设置')).dy;
+
+    expect(messageTop, greaterThan(testButtonBottom));
+    expect(messageTop, lessThan(securityTop));
   });
 }
