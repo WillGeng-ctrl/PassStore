@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -793,6 +795,46 @@ void main() {
     await tester.pump();
 
     expect(find.widgetWithText(OutlinedButton, '测试连接'), findsOneWidget);
+  });
+
+  testWidgets('WebDAV test keeps the save button stable', (tester) async {
+    final testConnection = Completer<String>();
+
+    await tester.binding.setSurfaceSize(const Size(1200, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          initialSettings: WebDavSettings.empty,
+          initialPreferences: AppPreferences.defaults,
+          onSaveWebDav: (_, _, _) async {},
+          onTestWebDav: (_, _, _) => testConnection.future,
+          onSavePreferences: (_) async {},
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
+          onChangeMasterPassword: () async {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    final saveButton = find.widgetWithText(FilledButton, '保存设置');
+
+    expect(tester.widget<FilledButton>(saveButton).onPressed, isNotNull);
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '测试连接'));
+    await tester.pump();
+
+    expect(find.widgetWithText(OutlinedButton, '测试中...'), findsOneWidget);
+    expect(tester.widget<FilledButton>(saveButton).onPressed, isNotNull);
+
+    testConnection.complete('连接成功');
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.widgetWithText(OutlinedButton, '连接成功'), findsOneWidget);
+    expect(tester.widget<FilledButton>(saveButton).onPressed, isNotNull);
   });
 
   testWidgets('WebDAV test failure appears on the button and resets', (

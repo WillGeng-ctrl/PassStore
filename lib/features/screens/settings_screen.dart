@@ -44,7 +44,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Timer? _testStatusResetTimer;
   String _saveMessage = '';
   String _backupMessage = '';
-  bool _busy = false;
+  bool _testingWebDav = false;
+  bool _savingWebDav = false;
   bool _preferencesBusy = false;
   bool _backupBusy = false;
 
@@ -127,7 +128,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: FilledButton(
-                        onPressed: _busy ? null : _save,
+                        onPressed: _savingWebDav ? null : _save,
                         child: const Text('保存设置'),
                       ),
                     ),
@@ -269,7 +270,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _test() async {
     _testStatusResetTimer?.cancel();
     setState(() {
-      _busy = true;
+      _testingWebDav = true;
       _testStatus = _ConnectionTestStatus.testing;
       _saveMessage = '';
     });
@@ -281,7 +282,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _testStatus = message == '连接成功'
             ? _ConnectionTestStatus.success
             : _ConnectionTestStatus.failure;
-        _busy = false;
+        _testingWebDav = false;
       });
       _scheduleTestStatusReset();
     }
@@ -290,7 +291,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _save() async {
     _testStatusResetTimer?.cancel();
     setState(() {
-      _busy = true;
+      _savingWebDav = true;
       _testStatus = _ConnectionTestStatus.idle;
       _saveMessage = '';
     });
@@ -298,14 +299,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       setState(() {
         _saveMessage = '设置已保存';
-        _busy = false;
+        _savingWebDav = false;
       });
     }
   }
 
   Widget _testConnectionButton() {
     return OutlinedButton(
-      onPressed: _busy ? null : _test,
+      onPressed: _testingWebDav || _savingWebDav ? null : _test,
       style: _testConnectionButtonStyle(),
       child: Text(_testConnectionButtonLabel),
     );
