@@ -68,23 +68,7 @@ class _EditEntryDialogState extends State<EditEntryDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: _categoryId,
-                decoration: const InputDecoration(
-                  labelText: '分类',
-                  border: OutlineInputBorder(),
-                ),
-                items: widget.categories
-                    .map(
-                      (category) => DropdownMenuItem(
-                        value: category.id,
-                        child: Text(category.name),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) =>
-                    setState(() => _categoryId = value ?? _categoryId),
-              ),
+              _categorySelector(context),
               const SizedBox(height: 12),
               _copyField(controller: _account, label: '账号'),
               const SizedBox(height: 12),
@@ -112,6 +96,27 @@ class _EditEntryDialogState extends State<EditEntryDialog> {
         ),
         FilledButton(onPressed: _save, child: const Text('保存')),
       ],
+    );
+  }
+
+  Widget _categorySelector(BuildContext context) {
+    return InputDecorator(
+      decoration: const InputDecoration(
+        labelText: '分类',
+        border: OutlineInputBorder(),
+        contentPadding: EdgeInsets.fromLTRB(12, 14, 12, 10),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: widget.categories.map((category) {
+          return ChoiceChip(
+            label: Text(category.name),
+            selected: _categoryId == category.id,
+            onSelected: (_) => setState(() => _categoryId = category.id),
+          );
+        }).toList(),
+      ),
     );
   }
 

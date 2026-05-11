@@ -137,6 +137,24 @@ void main() {
     expect(passwordField.obscureText, isFalse);
   });
 
+  testWidgets('entry dialog uses inline category choices', (tester) async {
+    final now = DateTime.utc(2026, 5, 11);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditEntryDialog(
+            categories: Category.builtIns(now),
+            initialCategoryId: Category.websiteId,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+    expect(find.byType(ChoiceChip), findsNWidgets(4));
+  });
+
   testWidgets('WebDAV test failure appears below the test button', (
     tester,
   ) async {
