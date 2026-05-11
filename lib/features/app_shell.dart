@@ -8,6 +8,7 @@ import '../core/models/vault_entry.dart';
 import '../core/services/vault_crypto.dart';
 import '../core/services/vault_service.dart';
 import '../data/app_preferences.dart';
+import '../data/vault_sync_coordinator.dart';
 import '../data/webdav_settings.dart';
 import '../data/webdav_sync_service.dart';
 import 'screens/category_manager_screen.dart';
@@ -32,6 +33,8 @@ class AppShell extends StatefulWidget {
     required this.onExportBackup,
     required this.onImportBackup,
     required this.onLock,
+    this.syncStatus,
+    this.onSyncRequested,
   });
 
   final Vault vault;
@@ -48,6 +51,9 @@ class AppShell extends StatefulWidget {
   final Future<String> Function() onExportBackup;
   final Future<String> Function() onImportBackup;
   final VoidCallback onLock;
+  final VaultSyncStatus? syncStatus;
+  final Future<VaultSyncStatus> Function({String? remoteMasterPassword})?
+  onSyncRequested;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -80,11 +86,14 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final webDavSettings = _effectiveWebDavSettings();
-    final syncStatus = webDavSettings.isConfigured ? '已同步' : '未配置同步';
+    final syncStatus = webDavSettings.isConfigured
+        ? widget.syncStatus?.label ?? '已同步'
+        : VaultSyncStatus.unconfigured.label;
     final child = switch (_view) {
       _ShellView.main => MainVaultScreen(
         vault: _vault,
         syncStatus: syncStatus,
+        onSync: _requestSync,
         onNewEntry: _newEntry,
         onEditEntry: _editEntry,
         onDeleteEntry: _deleteEntry,
@@ -265,6 +274,24 @@ class _AppShellState extends State<AppShell> {
     return result.message;
   }
 
+  Future<void> _requestSync() async {
+    final webDavSettings = _effectiveWebDavSettings();
+    if (!webDavSettings.isConfigured) {
+      setState(() => _view = _ShellView.settings);
+      return;
+    }
+    final request = widget.onSyncRequested;
+    if (request == null) return;
+    final status = await request();
+    if (!mounted || status != VaultSyncStatus.needsNewMasterPassword) return;
+    final remoteMasterPassword = await showDialog<String>(
+      context: context,
+      builder: (context) => const _RemoteMasterPasswordDialog(),
+    );
+    if (remoteMasterPassword == null || remoteMasterPassword.isEmpty) return;
+    await request(remoteMasterPassword: remoteMasterPassword);
+  }
+
   Future<void> _changeMasterPassword() async {
     final draft = await showDialog<ChangeMasterPasswordDraft>(
       context: context,
@@ -298,3 +325,50 @@ class _AppShellState extends State<AppShell> {
 }
 
 enum _ShellView { main, categories, recycleBin, settings }
+
+class _RemoteMasterPasswordDialog extends StatefulWidget {
+  const _RemoteMasterPasswordDialog();
+
+  @override
+  State<_RemoteMasterPasswordDialog> createState() =>
+      _RemoteMasterPasswordDialogState();
+}
+
+class _RemoteMasterPasswordDialogState
+    extends State<_RemoteMasterPasswordDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('输入新的主密码'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        obscureText: true,
+        decoration: const InputDecoration(
+          labelText: '新的主密码',
+          border: OutlineInputBorder(),
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        OutlinedButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('取消'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('继续同步')),
+      ],
+    );
+  }
+
+  void _submit() {
+    Navigator.pop(context, _controller.text);
+  }
+}

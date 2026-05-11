@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,8 +10,11 @@ import 'core/services/vault_crypto.dart';
 import 'core/services/vault_service.dart';
 import 'data/app_preferences.dart';
 import 'data/local_vault_repository.dart';
+import 'data/sync_metadata_store.dart';
 import 'data/vault_backup_service.dart';
 import 'data/webdav_settings.dart';
+import 'data/vault_sync_coordinator.dart';
+import 'data/webdav_sync_service.dart';
 import 'features/app_shell.dart';
 import 'features/screens/create_vault_screen.dart';
 import 'features/screens/unlock_screen.dart';
@@ -32,8 +36,13 @@ class _PassStoreAppState extends State<PassStoreApp> {
   final _crypto = VaultCrypto();
   final _repository = const LocalVaultRepository();
   final _settingsStore = WebDavSettingsStore();
+  final _syncMetadataStore = const SyncMetadataStore();
   final _preferencesStore = const AppPreferencesStore();
   final _backupService = const VaultBackupService();
+  late final _syncCoordinator = VaultSyncCoordinator(
+    crypto: _crypto,
+    remote: const WebDavSyncService(),
+  );
 
   Vault? _vault;
   EncryptedVaultPayload? _encryptedPayload;
@@ -42,6 +51,15 @@ class _PassStoreAppState extends State<PassStoreApp> {
   bool _hasVault = false;
   WebDavSettings _webDavSettings = WebDavSettings.empty;
   AppPreferences _preferences = AppPreferences.defaults;
+  SyncMetadata _syncMetadata = SyncMetadata.empty;
+  VaultSyncStatus _syncStatus = VaultSyncStatus.unconfigured;
+  Timer? _autoSyncTimer;
+
+  @override
+  void dispose() {
+    _autoSyncTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -136,12 +154,14 @@ class _PassStoreAppState extends State<PassStoreApp> {
         encryptedPayload: _encryptedPayload,
         webDavSettings: _webDavSettings,
         preferences: _preferences,
+        syncStatus: _syncStatus,
         onVaultChanged: _persistVault,
         onMasterPasswordChanged: _changeMasterPassword,
         onSaveWebDav: _saveWebDav,
         onPreferencesChanged: _savePreferences,
         onExportBackup: _exportBackup,
         onImportBackup: _importBackup,
+        onSyncRequested: _runSync,
         onLock: _lock,
       );
     }
@@ -159,10 +179,13 @@ class _PassStoreAppState extends State<PassStoreApp> {
     try {
       final settings = await _settingsStore.load();
       final preferences = await _preferencesStore.load();
+      final syncMetadata = await _syncMetadataStore.load();
       final payload = await _repository.readEncrypted();
       setState(() {
         _webDavSettings = settings;
         _preferences = preferences;
+        _syncMetadata = syncMetadata;
+        _syncStatus = _syncStatusFor(settings, syncMetadata);
         _encryptedPayload = payload;
         _hasVault = payload != null;
         _loading = false;
@@ -205,6 +228,7 @@ class _PassStoreAppState extends State<PassStoreApp> {
       _encryptedPayload = payload;
       _hasVault = true;
       _webDavSettings = webDavSettings;
+      _syncStatus = _syncStatusFor(webDavSettings, _syncMetadata);
     });
   }
 
@@ -251,10 +275,14 @@ class _PassStoreAppState extends State<PassStoreApp> {
       _encryptedPayload = payload;
       _hasVault = true;
       _webDavSettings = webDavSettings;
+      _syncStatus = _syncStatusFor(webDavSettings, _syncMetadata);
     });
+    if (widget.enablePersistence && webDavSettings.isConfigured) {
+      unawaited(_runSync());
+    }
   }
 
-  Future<void> _persistVault(Vault vault) async {
+  Future<void> _persistVault(Vault vault, {bool scheduleSync = true}) async {
     final password = _masterPassword;
     if (password == null) return;
     final payload = await _crypto.encryptString(
@@ -268,6 +296,9 @@ class _PassStoreAppState extends State<PassStoreApp> {
       _encryptedPayload = payload;
       _webDavSettings = webDavSettings;
     });
+    if (scheduleSync) {
+      await _markUnsynced(webDavSettings);
+    }
   }
 
   Future<void> _changeMasterPassword(
@@ -289,6 +320,16 @@ class _PassStoreAppState extends State<PassStoreApp> {
       _masterPassword = nextPassword;
       _encryptedPayload = nextPayload;
     });
+    await _markUnsynced(
+      _webDavSettingsFromVault(vault, _webDavSettings),
+      scheduleSync: false,
+    );
+    unawaited(
+      _runSyncInternal(
+        remoteMasterPassword: currentPassword,
+        uploadMasterPassword: nextPassword,
+      ),
+    );
   }
 
   Future<void> _saveWebDav(
@@ -306,7 +347,7 @@ class _PassStoreAppState extends State<PassStoreApp> {
         appPassword: appPassword,
         now: DateTime.now().toUtc(),
       );
-      await _persistVault(vault);
+      await _persistVault(vault, scheduleSync: false);
       webDavSettings = _webDavSettingsFromVault(vault, _webDavSettings);
     } else {
       webDavSettings = WebDavSettings(
@@ -325,6 +366,7 @@ class _PassStoreAppState extends State<PassStoreApp> {
     }
     setState(() {
       _webDavSettings = webDavSettings;
+      _syncStatus = _syncStatusFor(webDavSettings, _syncMetadata);
     });
   }
 
@@ -375,6 +417,7 @@ class _PassStoreAppState extends State<PassStoreApp> {
         _hasVault = true;
         _webDavSettings = webDavSettings;
       });
+      await _markUnsynced(webDavSettings);
       return '已从备份恢复';
     } catch (error) {
       return '恢复失败：$error';
@@ -480,6 +523,124 @@ if (\$dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
           : fallback.account,
       hasAppPassword: credentials.hasAppPassword,
     );
+  }
+
+  Future<VaultSyncStatus> _runSync({String? remoteMasterPassword}) {
+    return _runSyncInternal(remoteMasterPassword: remoteMasterPassword);
+  }
+
+  Future<VaultSyncStatus> _runSyncInternal({
+    String? remoteMasterPassword,
+    String? uploadMasterPassword,
+  }) async {
+    _autoSyncTimer?.cancel();
+    final vault = _vault;
+    final masterPassword = _masterPassword;
+    final credentials = _syncCredentialsFromVault(vault);
+    if (vault == null || masterPassword == null || credentials == null) {
+      if (mounted) {
+        setState(() => _syncStatus = VaultSyncStatus.unconfigured);
+      }
+      return VaultSyncStatus.unconfigured;
+    }
+
+    if (mounted) setState(() => _syncStatus = VaultSyncStatus.syncing);
+    final result = await _syncCoordinator.sync(
+      localVault: vault,
+      masterPassword: masterPassword,
+      remoteMasterPassword: remoteMasterPassword,
+      uploadMasterPassword: uploadMasterPassword,
+      credentials: credentials,
+      metadata: _syncMetadata,
+    );
+
+    if (!mounted) return result.status;
+
+    if (result.status == VaultSyncStatus.synced) {
+      final syncedVault = result.vault!;
+      final payload = result.payload!;
+      final metadata = result.metadata!;
+      final webDavSettings = _webDavSettingsFromVault(
+        syncedVault,
+        _webDavSettings,
+      );
+      if (widget.enablePersistence) {
+        await _repository.writeEncrypted(payload);
+        await _settingsStore.saveMetadata(
+          url: webDavSettings.url,
+          account: webDavSettings.account,
+          hasAppPassword: webDavSettings.hasAppPassword,
+        );
+        await _syncMetadataStore.save(metadata);
+      }
+      setState(() {
+        _vault = syncedVault;
+        _encryptedPayload = payload;
+        _masterPassword = result.masterPassword ?? masterPassword;
+        _syncMetadata = metadata;
+        _webDavSettings = webDavSettings;
+        _syncStatus = VaultSyncStatus.synced;
+      });
+      return VaultSyncStatus.synced;
+    }
+
+    final metadata = result.metadata;
+    if (metadata != null) await _saveSyncMetadata(metadata);
+    setState(() => _syncStatus = result.status);
+    return result.status;
+  }
+
+  Future<void> _markUnsynced(
+    WebDavSettings webDavSettings, {
+    bool scheduleSync = true,
+  }) async {
+    final metadata = _syncMetadata.copyWith(
+      hasUnsyncedChanges: true,
+      lastError: null,
+    );
+    await _saveSyncMetadata(metadata);
+    if (mounted) {
+      setState(() {
+        _syncStatus = webDavSettings.isConfigured
+            ? VaultSyncStatus.notSynced
+            : VaultSyncStatus.unconfigured;
+      });
+    }
+    if (scheduleSync && webDavSettings.isConfigured) _scheduleAutoSync();
+  }
+
+  Future<void> _saveSyncMetadata(SyncMetadata metadata) async {
+    if (widget.enablePersistence) await _syncMetadataStore.save(metadata);
+    if (mounted) setState(() => _syncMetadata = metadata);
+  }
+
+  void _scheduleAutoSync() {
+    _autoSyncTimer?.cancel();
+    if (_syncCredentialsFromVault(_vault) == null) return;
+    _autoSyncTimer = Timer(const Duration(seconds: 3), () {
+      unawaited(_runSync());
+    });
+  }
+
+  VaultSyncStatus _syncStatusFor(
+    WebDavSettings webDavSettings,
+    SyncMetadata metadata,
+  ) {
+    if (!webDavSettings.isConfigured) return VaultSyncStatus.unconfigured;
+    if (metadata.hasUnsyncedChanges) return VaultSyncStatus.notSynced;
+    if (metadata.lastSyncedAt != null) return VaultSyncStatus.synced;
+    return VaultSyncStatus.notSynced;
+  }
+
+  SyncCredentials? _syncCredentialsFromVault(Vault? vault) {
+    final credentials = vault?.webDavCredentials;
+    if (credentials == null) return null;
+    final syncCredentials = SyncCredentials(
+      url: credentials.url,
+      account: credentials.account,
+      appPassword: credentials.appPassword,
+    );
+    return syncCredentials.isConfigured ? syncCredentials : null;
   }
 
   void _lock() {

@@ -2,7 +2,22 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-class WebDavSyncService {
+abstract class VaultRemoteStore {
+  Future<RemoteVaultFile?> downloadVaultFile({
+    required String url,
+    required String account,
+    required String appPassword,
+  });
+
+  Future<void> uploadVault({
+    required String url,
+    required String account,
+    required String appPassword,
+    required String body,
+  });
+}
+
+class WebDavSyncService implements VaultRemoteStore {
   const WebDavSyncService({http.Client? client}) : _client = client;
 
   final http.Client? _client;
@@ -40,32 +55,89 @@ class WebDavSyncService {
     required String account,
     required String appPassword,
   }) async {
-    final response = await http.get(
-      _uri(url),
-      headers: _authHeaders(account, appPassword),
+    final file = await downloadVaultFile(
+      url: url,
+      account: account,
+      appPassword: appPassword,
     );
-    if (response.statusCode != 200) {
-      throw WebDavException('下载失败：HTTP ${response.statusCode}');
-    }
-    return response.body;
+    if (file == null) throw const WebDavException('远程密码库不存在');
+    return file.body;
   }
 
+  @override
+  Future<RemoteVaultFile?> downloadVaultFile({
+    required String url,
+    required String account,
+    required String appPassword,
+  }) async {
+    final client = _client ?? http.Client();
+    try {
+      final response = await client.get(
+        _vaultUri(url),
+        headers: _authHeaders(account, appPassword),
+      );
+      if (response.statusCode == 404) return null;
+      if (response.statusCode != 200) {
+        throw WebDavException('下载失败：HTTP ${response.statusCode}');
+      }
+      return RemoteVaultFile(
+        body: response.body,
+        etag: response.headers['etag'],
+        lastModified: response.headers['last-modified'],
+      );
+    } finally {
+      if (_client == null) client.close();
+    }
+  }
+
+  @override
   Future<void> uploadVault({
     required String url,
     required String account,
     required String appPassword,
     required String body,
   }) async {
-    final response = await http.put(
-      _uri(url),
-      headers: {
-        ..._authHeaders(account, appPassword),
-        'Content-Type': 'application/json; charset=utf-8',
-      },
-      body: body,
+    final client = _client ?? http.Client();
+    try {
+      await _ensureVaultDirectory(
+        client: client,
+        url: url,
+        account: account,
+        appPassword: appPassword,
+      );
+      final response = await client.put(
+        _vaultUri(url),
+        headers: {
+          ..._authHeaders(account, appPassword),
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+        body: body,
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw WebDavException('上传失败：HTTP ${response.statusCode}');
+      }
+    } finally {
+      if (_client == null) client.close();
+    }
+  }
+
+  Future<void> _ensureVaultDirectory({
+    required http.Client client,
+    required String url,
+    required String account,
+    required String appPassword,
+  }) async {
+    final response = await client.send(
+      http.Request('MKCOL', _vaultDirectoryUri(url))
+        ..headers.addAll(_authHeaders(account, appPassword)),
     );
+    if (response.statusCode == 201 ||
+        response.statusCode == 200 ||
+        response.statusCode == 405) {
+      return;
+    }
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw WebDavException('上传失败：HTTP ${response.statusCode}');
+      throw WebDavException('创建远程目录失败：HTTP ${response.statusCode}');
     }
   }
 
@@ -86,11 +158,29 @@ class WebDavSyncService {
     return uri.replace(path: path);
   }
 
+  Uri _vaultDirectoryUri(String rawUrl) {
+    final collection = _collectionUri(rawUrl);
+    return collection.replace(path: '${collection.path}PassStore/');
+  }
+
+  Uri _vaultUri(String rawUrl) {
+    final directory = _vaultDirectoryUri(rawUrl);
+    return directory.replace(path: '${directory.path}passstore.vault');
+  }
+
   Uri _uri(String rawUrl) {
     final value = rawUrl.trim();
     final normalized = value.contains('://') ? value : 'https://$value';
     return Uri.parse(normalized);
   }
+}
+
+class RemoteVaultFile {
+  const RemoteVaultFile({required this.body, this.etag, this.lastModified});
+
+  final String body;
+  final String? etag;
+  final String? lastModified;
 }
 
 class WebDavConnectionResult {

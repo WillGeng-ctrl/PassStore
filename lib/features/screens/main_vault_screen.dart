@@ -16,6 +16,7 @@ class MainVaultScreen extends StatefulWidget {
     required this.onOpenRecycleBin,
     required this.onLock,
     required this.syncStatus,
+    this.onSync,
   });
 
   final Vault vault;
@@ -27,6 +28,7 @@ class MainVaultScreen extends StatefulWidget {
   final VoidCallback onOpenRecycleBin;
   final VoidCallback onLock;
   final String syncStatus;
+  final Future<void> Function()? onSync;
 
   @override
   State<MainVaultScreen> createState() => _MainVaultScreenState();
@@ -63,6 +65,7 @@ class _MainVaultScreenState extends State<MainVaultScreen> {
         children: [
           _TopBar(
             syncStatus: widget.syncStatus,
+            onSync: widget.onSync,
             onSettings: widget.onOpenSettings,
             onLock: widget.onLock,
           ),
@@ -200,11 +203,13 @@ class _MainVaultScreenState extends State<MainVaultScreen> {
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.syncStatus,
+    required this.onSync,
     required this.onSettings,
     required this.onLock,
   });
 
   final String syncStatus;
+  final Future<void> Function()? onSync;
   final VoidCallback onSettings;
   final VoidCallback onLock;
 
@@ -222,7 +227,7 @@ class _TopBar extends StatelessWidget {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
             ),
             const SizedBox(width: 16),
-            _SyncBadge(label: syncStatus),
+            _SyncBadge(label: syncStatus, onTap: onSync),
             const Spacer(),
             IconButton(
               tooltip: '设置',
@@ -402,9 +407,10 @@ IconData categoryIcon(Category category) {
 }
 
 class _SyncBadge extends StatelessWidget {
-  const _SyncBadge({required this.label});
+  const _SyncBadge({required this.label, this.onTap});
 
   final String label;
+  final Future<void> Function()? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -419,22 +425,26 @@ class _SyncBadge extends StatelessWidget {
         ? Icons.check_circle_outline
         : Icons.cloud_off_outlined;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: foreground),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(color: foreground, fontWeight: FontWeight.w600),
-          ),
-        ],
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap == null ? null : () => onTap!(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: foreground),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(color: foreground, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
       ),
     );
   }
