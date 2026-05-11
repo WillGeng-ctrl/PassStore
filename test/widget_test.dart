@@ -275,6 +275,52 @@ void main() {
     expect(cancelLeft, greaterThan(saveLeft));
   });
 
+  testWidgets('category delete dialog uses compact title and equal actions', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 5, 12);
+    final categories = [
+      ...Category.builtIns(now),
+      Category(
+        id: 'custom-test',
+        name: '测试',
+        sortOrder: 4,
+        isBuiltIn: false,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CategoryManagerScreen(
+          categories: categories,
+          onAdd: (_) {},
+          onRename: (_, _) {},
+          onDelete: (_) {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+
+    final title = tester.widget<Text>(find.text('删除“测试”？'));
+    final delete = find.widgetWithText(FilledButton, '删除');
+    final cancel = find.widgetWithText(OutlinedButton, '取消');
+
+    final deleteSize = tester.getSize(delete);
+    final cancelSize = tester.getSize(cancel);
+    final deleteLeft = tester.getTopLeft(delete).dx;
+    final cancelLeft = tester.getTopLeft(cancel).dx;
+
+    expect(title.style?.fontSize, 22);
+    expect(deleteSize.width, cancelSize.width);
+    expect(deleteSize.height, cancelSize.height);
+    expect(cancelLeft, greaterThan(deleteLeft));
+  });
+
   testWidgets('subpage back buttons leave leading margin', (tester) async {
     Future<double> backButtonLeftFor(Widget child) async {
       await tester.pumpWidget(MaterialApp(home: child));

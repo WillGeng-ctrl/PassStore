@@ -119,16 +119,14 @@ class CategoryManagerScreen extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('删除“${category.name}”？'),
+        title: PassStoreDialogTitle('删除“${category.name}”？'),
         content: const Text('该分类下的条目会移动到“其他”。'),
+        actionsPadding: EdgeInsets.zero,
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
+          PassStoreDialogActions(
+            primaryLabel: '删除',
+            onPrimary: () => Navigator.pop(context, true),
+            onCancel: () => Navigator.pop(context, false),
           ),
         ],
       ),
