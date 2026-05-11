@@ -214,11 +214,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ]),
               _group('关于', const [
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text('PassStore'),
-                  subtitle: Text('个人自用密码库 MVP'),
+                Text(
+                  'PassStore',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
+                SizedBox(height: 8),
+                Text('版本号：0.1.0+1'),
+                SizedBox(height: 6),
+                Text('联系作者：https://github.com/WillGeng-ctrl/PassStore/issues'),
               ]),
             ],
           ),

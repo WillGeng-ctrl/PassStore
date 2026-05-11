@@ -930,4 +930,30 @@ void main() {
     expect(imported, isTrue);
     expect(find.text('已从备份恢复'), findsOneWidget);
   });
+
+  testWidgets('settings about section shows version and author contact', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          initialSettings: WebDavSettings.empty,
+          initialPreferences: AppPreferences.defaults,
+          onSaveWebDav: (_, _, _) async {},
+          onTestWebDav: (_, _, _) async => '连接成功',
+          onSavePreferences: (_) async {},
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
+          onChangeMasterPassword: () async {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('版本号：0.1.0+1'), findsOneWidget);
+    expect(find.text('联系作者：https://github.com/WillGeng-ctrl/PassStore/issues'), findsOneWidget);
+  });
 }
