@@ -40,6 +40,36 @@ void main() {
     expect(tester.getTopLeft(button), before);
   });
 
+  testWidgets('unlock password field autofocuses on open', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: UnlockScreen(onUnlock: (_) async {})),
+    );
+
+    final passwordField = tester.widget<TextField>(find.byType(TextField));
+
+    expect(passwordField.autofocus, isTrue);
+  });
+
+  testWidgets('pressing Enter submits the unlock password', (tester) async {
+    String? submittedPassword;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: UnlockScreen(
+          onUnlock: (password) async {
+            submittedPassword = password;
+          },
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), 'master-password');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(submittedPassword, 'master-password');
+  });
+
   testWidgets('create vault validation error does not move the create button', (
     tester,
   ) async {

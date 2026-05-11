@@ -62,7 +62,12 @@ class _UnlockScreenState extends State<UnlockScreen> {
                   const SizedBox(height: 24),
                   TextField(
                     controller: _password,
+                    autofocus: true,
                     obscureText: true,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) {
+                      if (!_busy) _submit();
+                    },
                     decoration: const InputDecoration(
                       labelText: '主密码',
                       border: OutlineInputBorder(),
