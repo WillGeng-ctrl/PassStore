@@ -977,9 +977,7 @@ void main() {
     expect(find.text('安全设置已保存'), findsNothing);
   });
 
-  testWidgets('backup actions call export and import callbacks', (
-    tester,
-  ) async {
+  testWidgets('backup actions show success on their buttons', (tester) async {
     var exported = false;
     var imported = false;
 
@@ -1009,16 +1007,82 @@ void main() {
     );
 
     await tester.tap(find.widgetWithText(FilledButton, '导出加密备份'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
 
     expect(exported, isTrue);
-    expect(find.text('备份已导出'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, '导出成功'), findsOneWidget);
+    expect(find.text('备份已导出'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 2100));
+    await tester.pump();
+
+    expect(find.widgetWithText(FilledButton, '导出加密备份'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(OutlinedButton, '从备份恢复'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
 
     expect(imported, isTrue);
-    expect(find.text('已从备份恢复'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '恢复成功'), findsOneWidget);
+    expect(find.text('已从备份恢复'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 2100));
+    await tester.pump();
+
+    expect(find.widgetWithText(OutlinedButton, '从备份恢复'), findsOneWidget);
+  });
+
+  testWidgets('backup action failure appears on the button', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          initialSettings: WebDavSettings.empty,
+          initialPreferences: AppPreferences.defaults,
+          onSaveWebDav: (_, _, _) async {},
+          onTestWebDav: (_, _, _) async => '连接成功',
+          onSavePreferences: (_) async {},
+          onExportBackup: () async => '导出失败：磁盘不可写',
+          onImportBackup: () async => '恢复失败：文件格式无效',
+          onChangeMasterPassword: () async {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.widgetWithText(FilledButton, '导出加密备份'));
+    await tester.pump();
+    await tester.pump();
+
+    final exportButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, '导出失败'),
+    );
+
+    expect(find.text('导出失败：磁盘不可写'), findsNothing);
+    expect(
+      exportButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+      const Color(0xffdc2626),
+    );
+
+    await tester.pump(const Duration(milliseconds: 2100));
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, '从备份恢复'));
+    await tester.pump();
+    await tester.pump();
+
+    final importButton = tester.widget<OutlinedButton>(
+      find.widgetWithText(OutlinedButton, '恢复失败'),
+    );
+
+    expect(find.text('恢复失败：文件格式无效'), findsNothing);
+    expect(
+      importButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+      const Color(0xffdc2626),
+    );
   });
 
   testWidgets('settings about section shows version and author contact', (

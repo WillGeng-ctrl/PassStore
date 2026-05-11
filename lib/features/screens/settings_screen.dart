@@ -42,12 +42,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late int _autoLockMinutes;
   _ConnectionTestStatus _testStatus = _ConnectionTestStatus.idle;
   Timer? _testStatusResetTimer;
+  _BackupActionStatus _backupStatus = _BackupActionStatus.idle;
+  _BackupAction? _backupStatusAction;
+  Timer? _backupStatusResetTimer;
   String _saveMessage = '';
-  String _backupMessage = '';
   bool _testingWebDav = false;
   bool _savingWebDav = false;
   bool _preferencesBusy = false;
-  bool _backupBusy = false;
 
   @override
   void initState() {
@@ -60,6 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     _testStatusResetTimer?.cancel();
+    _backupStatusResetTimer?.cancel();
     _url.dispose();
     _account.dispose();
     _password.dispose();
@@ -167,31 +169,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _backupBusy ? null : _importBackup,
-                        child: const Text('从备份恢复'),
-                      ),
-                    ),
+                    Expanded(child: _backupButton(_BackupAction.import)),
                     const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: _backupBusy ? null : _exportBackup,
-                        child: const Text('导出加密备份'),
-                      ),
-                    ),
+                    Expanded(child: _backupButton(_BackupAction.export)),
                   ],
                 ),
-                if (_backupMessage.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _backupMessage,
-                    style: const TextStyle(
-                      color: Color(0xff079455),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
               ]),
               _group('关于', const [
                 Text(
@@ -246,25 +228,134 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _exportBackup() async {
-    await _runBackupAction(widget.onExportBackup);
+    await _runBackupAction(_BackupAction.export, widget.onExportBackup);
   }
 
   Future<void> _importBackup() async {
-    await _runBackupAction(widget.onImportBackup);
+    await _runBackupAction(_BackupAction.import, widget.onImportBackup);
   }
 
-  Future<void> _runBackupAction(Future<String> Function() action) async {
+  Future<void> _runBackupAction(
+    _BackupAction backupAction,
+    Future<String> Function() action,
+  ) async {
+    if (_backupStatus == _BackupActionStatus.running) return;
+    _backupStatusResetTimer?.cancel();
     setState(() {
-      _backupBusy = true;
-      _backupMessage = '';
+      _backupStatusAction = backupAction;
+      _backupStatus = _BackupActionStatus.running;
     });
-    final message = await action();
+    final message = await action().catchError(
+      (_) => backupAction == _BackupAction.export ? '导出失败' : '恢复失败',
+    );
     if (mounted) {
       setState(() {
-        _backupMessage = message;
-        _backupBusy = false;
+        _backupStatus = _backupStatusForMessage(message);
       });
+      _scheduleBackupStatusReset();
     }
+  }
+
+  Widget _backupButton(_BackupAction action) {
+    final onPressed =
+        _backupStatus == _BackupActionStatus.running &&
+            _backupStatusAction == action
+        ? null
+        : action == _BackupAction.export
+        ? _exportBackup
+        : _importBackup;
+
+    return switch (action) {
+      _BackupAction.import => OutlinedButton(
+        onPressed: onPressed,
+        style: _outlinedBackupButtonStyle(action),
+        child: Text(_backupButtonLabel(action)),
+      ),
+      _BackupAction.export => FilledButton(
+        onPressed: onPressed,
+        style: _filledBackupButtonStyle(action),
+        child: Text(_backupButtonLabel(action)),
+      ),
+    };
+  }
+
+  ButtonStyle? _outlinedBackupButtonStyle(_BackupAction action) {
+    final color = _backupStatusColor(action);
+    if (color == null) return null;
+
+    return OutlinedButton.styleFrom(
+      backgroundColor: color,
+      foregroundColor: Colors.white,
+      side: BorderSide(color: color),
+    );
+  }
+
+  ButtonStyle? _filledBackupButtonStyle(_BackupAction action) {
+    final color = _backupStatusColor(action);
+    if (color == null) return null;
+
+    return FilledButton.styleFrom(
+      backgroundColor: color,
+      foregroundColor: Colors.white,
+    );
+  }
+
+  Color? _backupStatusColor(_BackupAction action) {
+    if (_backupStatusAction != action) return null;
+
+    return switch (_backupStatus) {
+      _BackupActionStatus.success => _connectionSuccessColor,
+      _BackupActionStatus.failure => _connectionFailureColor,
+      _BackupActionStatus.canceled => const Color(0xff64748b),
+      _ => null,
+    };
+  }
+
+  String _backupButtonLabel(_BackupAction action) {
+    if (_backupStatusAction != action ||
+        _backupStatus == _BackupActionStatus.idle) {
+      return _backupIdleLabel(action);
+    }
+
+    return switch (_backupStatus) {
+      _BackupActionStatus.running =>
+        action == _BackupAction.export ? '导出中...' : '恢复中...',
+      _BackupActionStatus.success =>
+        action == _BackupAction.export ? '导出成功' : '恢复成功',
+      _BackupActionStatus.failure =>
+        action == _BackupAction.export ? '导出失败' : '恢复失败',
+      _BackupActionStatus.canceled => '已取消',
+      _BackupActionStatus.idle => _backupIdleLabel(action),
+    };
+  }
+
+  String _backupIdleLabel(_BackupAction action) {
+    return switch (action) {
+      _BackupAction.import => '从备份恢复',
+      _BackupAction.export => '导出加密备份',
+    };
+  }
+
+  _BackupActionStatus _backupStatusForMessage(String message) {
+    if (message.contains('取消')) return _BackupActionStatus.canceled;
+    if (message.contains('失败') ||
+        message.startsWith('没有') ||
+        message.startsWith('请先')) {
+      return _BackupActionStatus.failure;
+    }
+    return _BackupActionStatus.success;
+  }
+
+  void _scheduleBackupStatusReset() {
+    final action = _backupStatusAction;
+    _backupStatusResetTimer?.cancel();
+    _backupStatusResetTimer = Timer(const Duration(seconds: 2), () {
+      if (!mounted || _backupStatusAction != action) return;
+      setState(() {
+        _backupStatus = _BackupActionStatus.idle;
+        _backupStatusAction = null;
+      });
+    });
   }
 
   Future<void> _test() async {
@@ -422,3 +513,7 @@ const _connectionSuccessColor = Color(0xff079455);
 const _connectionFailureColor = Color(0xffdc2626);
 
 enum _ConnectionTestStatus { idle, testing, success, failure }
+
+enum _BackupAction { export, import }
+
+enum _BackupActionStatus { idle, running, success, failure, canceled }
