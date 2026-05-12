@@ -15,6 +15,7 @@ import 'screens/category_manager_screen.dart';
 import 'screens/change_master_password_dialog.dart';
 import 'screens/edit_entry_dialog.dart';
 import 'screens/main_vault_screen.dart';
+import 'screens/passstore_dialog.dart';
 import 'screens/recycle_bin_screen.dart';
 import 'screens/settings_screen.dart';
 
@@ -87,7 +88,7 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final webDavSettings = _effectiveWebDavSettings();
     final syncStatus = webDavSettings.isConfigured
-        ? widget.syncStatus?.label ?? '已同步'
+        ? widget.syncStatus?.label ?? VaultSyncStatus.notSynced.label
         : VaultSyncStatus.unconfigured.label;
     final child = switch (_view) {
       _ShellView.main => MainVaultScreen(
@@ -160,6 +161,7 @@ class _AppShellState extends State<AppShell> {
         categories: _vault.categories,
         initialCategoryId: categoryId,
         clipboardClearSeconds: widget.preferences.clipboardClearSeconds,
+        strongPasswordRules: widget.preferences.strongPasswordRules,
       ),
     );
     if (draft == null) return;
@@ -184,6 +186,7 @@ class _AppShellState extends State<AppShell> {
         initialCategoryId: entry.categoryId,
         entry: entry,
         clipboardClearSeconds: widget.preferences.clipboardClearSeconds,
+        strongPasswordRules: widget.preferences.strongPasswordRules,
       ),
     );
     if (draft == null) return;
@@ -347,23 +350,27 @@ class _RemoteMasterPasswordDialogState
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('输入新的主密码'),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        obscureText: true,
-        decoration: const InputDecoration(
-          labelText: '新的主密码',
-          border: OutlineInputBorder(),
+      title: const PassStoreDialogTitle('输入新的主密码'),
+      content: SizedBox(
+        width: 360,
+        child: TextField(
+          controller: _controller,
+          autofocus: true,
+          obscureText: true,
+          decoration: const InputDecoration(
+            labelText: '新的主密码',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (_) => _submit(),
         ),
-        onSubmitted: (_) => _submit(),
       ),
+      actionsPadding: EdgeInsets.zero,
       actions: [
-        OutlinedButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('取消'),
+        PassStoreDialogActions(
+          primaryLabel: '继续同步',
+          onPrimary: _submit,
+          onCancel: () => Navigator.pop(context),
         ),
-        FilledButton(onPressed: _submit, child: const Text('继续同步')),
       ],
     );
   }

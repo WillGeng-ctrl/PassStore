@@ -1,13 +1,40 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:passstore/core/models/category.dart';
+import 'package:passstore/core/models/vault.dart';
 import 'package:passstore/core/models/vault_entry.dart';
 import 'package:passstore/core/services/vault_service.dart';
 
 void main() {
-  test('creates vault with the four default categories', () {
+  test('creates vault with the five default categories', () {
     final vault = VaultService.createEmptyVault(now: DateTime.utc(2026, 5, 11));
 
-    expect(vault.categories.map((c) => c.name), ['网站', '应用', '游戏', '其他']);
+    expect(vault.categories.map((c) => c.id), [
+      Category.websiteId,
+      Category.emailId,
+      Category.appId,
+      Category.gameId,
+      Category.otherId,
+    ]);
     expect(vault.categories.every((c) => c.isBuiltIn), isTrue);
+  });
+
+  test('loads existing vaults with missing default email category', () {
+    final now = DateTime.utc(2026, 5, 11);
+    final oldVault = VaultService.createEmptyVault(now: now).copyWith(
+      categories: Category.builtIns(
+        now,
+      ).where((category) => category.id != Category.emailId).toList(),
+    );
+
+    final vault = Vault.fromJson(oldVault.toJson());
+
+    expect(vault.categories.map((c) => c.id), [
+      Category.websiteId,
+      Category.emailId,
+      Category.appId,
+      Category.gameId,
+      Category.otherId,
+    ]);
   });
 
   test('moves entries to other when deleting a custom category', () {
@@ -36,25 +63,28 @@ void main() {
     expect(vault.categories.any((c) => c.id == work.id), isFalse);
   });
 
-  test('delete moves entry to recycle bin and restore clears deleted timestamp', () {
-    final now = DateTime.utc(2026, 5, 11);
-    var vault = VaultService.createEmptyVault(now: now);
-    final site = vault.categories.singleWhere((c) => c.name == '网站');
-    final entry = VaultEntry.create(
-      title: 'GitHub',
-      account: 'user@example.com',
-      password: 'secret',
-      url: 'https://github.com',
-      notes: '',
-      categoryId: site.id,
-      now: now,
-    );
-    vault = VaultService.upsertEntry(vault, entry, now: now);
+  test(
+    'delete moves entry to recycle bin and restore clears deleted timestamp',
+    () {
+      final now = DateTime.utc(2026, 5, 11);
+      var vault = VaultService.createEmptyVault(now: now);
+      final site = vault.categories.singleWhere((c) => c.name == '网站');
+      final entry = VaultEntry.create(
+        title: 'GitHub',
+        account: 'user@example.com',
+        password: 'secret',
+        url: 'https://github.com',
+        notes: '',
+        categoryId: site.id,
+        now: now,
+      );
+      vault = VaultService.upsertEntry(vault, entry, now: now);
 
-    vault = VaultService.deleteEntry(vault, entryId: entry.id, now: now);
-    expect(vault.entries.single.deletedAt, isNotNull);
+      vault = VaultService.deleteEntry(vault, entryId: entry.id, now: now);
+      expect(vault.entries.single.deletedAt, isNotNull);
 
-    vault = VaultService.restoreEntry(vault, entryId: entry.id, now: now);
-    expect(vault.entries.single.deletedAt, isNull);
-  });
+      vault = VaultService.restoreEntry(vault, entryId: entry.id, now: now);
+      expect(vault.entries.single.deletedAt, isNull);
+    },
+  );
 }

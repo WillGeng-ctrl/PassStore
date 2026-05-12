@@ -13,14 +13,6 @@ void main() {
     final store = SyncMetadataStore(directory: tempDir);
     const payload = EncryptedVaultPayload(
       version: 1,
-      algorithm: 'AES-256-GCM',
-      kdf: 'Argon2id',
-      kdfParams: {
-        'parallelism': 2,
-        'memory': 8192,
-        'iterations': 3,
-        'hashLength': 32,
-      },
       salt: 'salt',
       nonce: 'nonce',
       mac: 'mac',

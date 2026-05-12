@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/models/strong_password_rules.dart';
 import '../../data/app_preferences.dart';
 import '../../data/webdav_settings.dart';
 
@@ -40,6 +41,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final TextEditingController _account;
   final _password = TextEditingController();
   late int _autoLockMinutes;
+  late StrongPasswordRules _strongPasswordRules;
   _ConnectionTestStatus _testStatus = _ConnectionTestStatus.idle;
   Timer? _testStatusResetTimer;
   _SaveSettingsStatus _saveStatus = _SaveSettingsStatus.idle;
@@ -49,7 +51,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Timer? _backupStatusResetTimer;
   bool _testingWebDav = false;
   bool _savingWebDav = false;
-  bool _preferencesBusy = false;
 
   @override
   void initState() {
@@ -57,6 +58,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _url = TextEditingController(text: widget.initialSettings.url);
     _account = TextEditingController(text: widget.initialSettings.account);
     _autoLockMinutes = widget.initialPreferences.autoLockMinutes;
+    _strongPasswordRules = widget.initialPreferences.strongPasswordRules;
   }
 
   @override
@@ -150,6 +152,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: '无操作后自动回到解锁页',
                   trailing: _autoLockSelector(context),
                 ),
+                const SizedBox(height: 14),
+                _strongPasswordRulesSection(context),
               ]),
               _group('备份与恢复', [
                 const Text('备份文件保持加密状态，恢复时需要当前主密码能够解开该备份。'),
@@ -200,18 +204,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _savePreferences() async {
-    setState(() {
-      _preferencesBusy = true;
-    });
     await widget.onSavePreferences(
       AppPreferences(
         autoLockMinutes: _autoLockMinutes,
         clipboardClearSeconds: widget.initialPreferences.clipboardClearSeconds,
+        strongPasswordRules: _strongPasswordRules,
       ),
     );
-    if (mounted) {
-      setState(() => _preferencesBusy = false);
-    }
   }
 
   Future<void> _exportBackup() async {
@@ -525,13 +524,215 @@ class _SettingsScreenState extends State<SettingsScreen> {
           )
           .toList(),
       selected: {_autoLockMinutes},
-      onSelectionChanged: _preferencesBusy
-          ? null
-          : (selected) {
-              final value = selected.first;
-              setState(() => _autoLockMinutes = value);
-              _savePreferences();
-            },
+      onSelectionChanged: (selected) {
+        final value = selected.first;
+        setState(() => _autoLockMinutes = value);
+        _savePreferences();
+      },
+    );
+  }
+
+  Widget _strongPasswordRulesSection(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xfff8fafc),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xffe2e8f0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            '强密码生成规则',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          _compactPreferenceRow(
+            title: '密码长度',
+            subtitle: '生成新密码时使用',
+            trailing: _strongPasswordLengthSelector(context),
+          ),
+          const SizedBox(height: 12),
+          _strongPasswordOptionRow(
+            label: '包含字符',
+            children: [
+              _strongPasswordCheckbox(
+                title: '大写字母',
+                value: _strongPasswordRules.includeUppercase,
+                nextRules: (value) =>
+                    _strongPasswordRules.copyWith(includeUppercase: value),
+              ),
+              _strongPasswordCheckbox(
+                title: '小写字母',
+                value: _strongPasswordRules.includeLowercase,
+                nextRules: (value) =>
+                    _strongPasswordRules.copyWith(includeLowercase: value),
+              ),
+              _strongPasswordCheckbox(
+                title: '数字',
+                value: _strongPasswordRules.includeDigits,
+                nextRules: (value) =>
+                    _strongPasswordRules.copyWith(includeDigits: value),
+              ),
+              _strongPasswordCheckbox(
+                title: '符号',
+                value: _strongPasswordRules.includeSymbols,
+                nextRules: (value) =>
+                    _strongPasswordRules.copyWith(includeSymbols: value),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _strongPasswordOptionRow(
+            label: '其他',
+            children: [
+              _strongPasswordCheckbox(
+                title: '排除易混淆字符',
+                value: _strongPasswordRules.excludeAmbiguous,
+                nextRules: (value) =>
+                    _strongPasswordRules.copyWith(excludeAmbiguous: value),
+                isCharacterGroup: false,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _strongPasswordLengthSelector(BuildContext context) {
+    return SegmentedButton<int>(
+      showSelectedIcon: false,
+      style: ButtonStyle(
+        visualDensity: VisualDensity.compact,
+        padding: const WidgetStatePropertyAll(
+          EdgeInsets.symmetric(horizontal: 10),
+        ),
+        textStyle: WidgetStatePropertyAll(
+          Theme.of(context).textTheme.bodyMedium,
+        ),
+      ),
+      segments: StrongPasswordRules.lengthOptions
+          .map(
+            (length) =>
+                ButtonSegment<int>(value: length, label: Text('$length 位')),
+          )
+          .toList(),
+      selected: {_strongPasswordRules.length},
+      onSelectionChanged: (selected) {
+        _updateStrongPasswordRules(
+          _strongPasswordRules.copyWith(length: selected.first),
+        );
+      },
+    );
+  }
+
+  Widget _strongPasswordCheckbox({
+    required String title,
+    required bool value,
+    required StrongPasswordRules Function(bool value) nextRules,
+    bool isCharacterGroup = true,
+  }) {
+    final enabled =
+        !isCharacterGroup || !value || _enabledCharacterGroupCount > 1;
+    return _StrongPasswordOption(
+      label: title,
+      value: value,
+      enabled: enabled,
+      onChanged: (checked) => _updateStrongPasswordRules(nextRules(checked)),
+    );
+  }
+
+  Widget _strongPasswordOptionRow({
+    required String label,
+    required List<Widget> children,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 78,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xff475569),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        Expanded(child: Wrap(spacing: 8, runSpacing: 8, children: children)),
+      ],
+    );
+  }
+
+  int get _enabledCharacterGroupCount {
+    return [
+      _strongPasswordRules.includeUppercase,
+      _strongPasswordRules.includeLowercase,
+      _strongPasswordRules.includeDigits,
+      _strongPasswordRules.includeSymbols,
+    ].where((enabled) => enabled).length;
+  }
+
+  void _updateStrongPasswordRules(StrongPasswordRules rules) {
+    setState(() => _strongPasswordRules = rules.normalized());
+    _savePreferences();
+  }
+}
+
+class _StrongPasswordOption extends StatelessWidget {
+  const _StrongPasswordOption({
+    required this.label,
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = enabled
+        ? const Color(0xff0f172a)
+        : const Color(0xff94a3b8);
+    final border = value ? const Color(0xff2563eb) : const Color(0xffcbd5e1);
+    final background = value ? const Color(0xffeff6ff) : Colors.white;
+
+    return InkWell(
+      onTap: enabled ? () => onChanged(!value) : null,
+      borderRadius: BorderRadius.circular(8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        height: 36,
+        padding: const EdgeInsets.only(left: 8, right: 12),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Checkbox(
+              value: value,
+              onChanged: enabled
+                  ? (checked) => onChanged(checked ?? false)
+                  : null,
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(color: foreground)),
+          ],
+        ),
+      ),
     );
   }
 }

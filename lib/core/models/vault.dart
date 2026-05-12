@@ -60,16 +60,18 @@ class Vault {
 
   factory Vault.fromJson(Map<String, Object?> json) {
     final webDavCredentialsJson = json['webDavCredentials'];
+    final updatedAt = DateTime.parse(json['updatedAt']! as String);
+    final categories = (json['categories']! as List<Object?>)
+        .cast<Map<String, Object?>>()
+        .map(Category.fromJson)
+        .toList();
     return Vault(
       id: json['id']! as String,
       revision: json['revision']! as int,
       createdAt: DateTime.parse(json['createdAt']! as String),
-      updatedAt: DateTime.parse(json['updatedAt']! as String),
+      updatedAt: updatedAt,
       lastModifiedDeviceId: json['lastModifiedDeviceId']! as String,
-      categories: (json['categories']! as List<Object?>)
-          .cast<Map<String, Object?>>()
-          .map(Category.fromJson)
-          .toList(),
+      categories: _normalizeBuiltInCategories(categories, updatedAt),
       entries: (json['entries']! as List<Object?>)
           .cast<Map<String, Object?>>()
           .map(VaultEntry.fromJson)
@@ -80,6 +82,30 @@ class Vault {
               (webDavCredentialsJson as Map<Object?, Object?>).cast(),
             ),
     );
+  }
+
+  static List<Category> _normalizeBuiltInCategories(
+    List<Category> categories,
+    DateTime fallbackTimestamp,
+  ) {
+    final builtInIds = Category.builtIns(
+      fallbackTimestamp,
+    ).map((category) => category.id).toSet();
+    final existingById = {
+      for (final category in categories) category.id: category,
+    };
+    final builtIns = Category.builtIns(fallbackTimestamp).map((defaults) {
+      final existing = existingById[defaults.id];
+      return (existing ?? defaults).copyWith(
+        name: defaults.name,
+        sortOrder: defaults.sortOrder,
+        isBuiltIn: true,
+      );
+    });
+    final customCategories = categories.where(
+      (category) => !builtInIds.contains(category.id),
+    );
+    return [...builtIns, ...customCategories];
   }
 
   static const Object _sentinel = Object();

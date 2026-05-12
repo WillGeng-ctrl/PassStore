@@ -78,6 +78,55 @@ void main() {
 
     expect(syncCount, 1);
   });
+
+  testWidgets('remote master password dialog uses compact equal actions', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppShell(
+          vault: VaultService.saveWebDavCredentials(
+            _vault(),
+            url: 'https://dav.jianguoyun.com/dav/',
+            account: 'user@example.com',
+            appPassword: 'app-password',
+            now: DateTime.utc(2026, 5, 12, 1),
+          ),
+          masterPassword: 'password',
+          encryptedPayload: null,
+          webDavSettings: WebDavSettings.empty,
+          preferences: AppPreferences.defaults,
+          syncStatus: VaultSyncStatus.notSynced,
+          onVaultChanged: (_) async {},
+          onMasterPasswordChanged: (_, _) async {},
+          onSaveWebDav: (_, _, _) async {},
+          onPreferencesChanged: (_) async {},
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
+          onSyncRequested: ({remoteMasterPassword}) async =>
+              VaultSyncStatus.needsNewMasterPassword,
+          onLock: () {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('未同步'));
+    await tester.pumpAndSettle();
+
+    final title = tester.widget<Text>(find.text('输入新的主密码'));
+    final continueSync = find.widgetWithText(FilledButton, '继续同步');
+    final cancel = find.widgetWithText(OutlinedButton, '取消');
+
+    final continueSize = tester.getSize(continueSync);
+    final cancelSize = tester.getSize(cancel);
+    final continueLeft = tester.getTopLeft(continueSync).dx;
+    final cancelLeft = tester.getTopLeft(cancel).dx;
+
+    expect(title.style?.fontSize, 22);
+    expect(continueSize.width, cancelSize.width);
+    expect(continueSize.height, cancelSize.height);
+    expect(cancelLeft, greaterThan(continueLeft));
+  });
 }
 
 Vault _vault() => VaultService.createEmptyVault(now: DateTime.utc(2026, 5, 12));

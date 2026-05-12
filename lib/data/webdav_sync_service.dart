@@ -14,6 +14,8 @@ abstract class VaultRemoteStore {
     required String account,
     required String appPassword,
     required String body,
+    String? expectedEtag,
+    bool onlyIfMissing = false,
   });
 }
 
@@ -98,6 +100,8 @@ class WebDavSyncService implements VaultRemoteStore {
     required String account,
     required String appPassword,
     required String body,
+    String? expectedEtag,
+    bool onlyIfMissing = false,
   }) async {
     final client = _client ?? http.Client();
     try {
@@ -107,14 +111,21 @@ class WebDavSyncService implements VaultRemoteStore {
         account: account,
         appPassword: appPassword,
       );
+      final headers = {
+        ..._authHeaders(account, appPassword),
+        'Content-Type': 'application/json; charset=utf-8',
+        if (expectedEtag != null && expectedEtag.isNotEmpty)
+          'If-Match': expectedEtag,
+        if (onlyIfMissing) 'If-None-Match': '*',
+      };
       final response = await client.put(
         _vaultUri(url),
-        headers: {
-          ..._authHeaders(account, appPassword),
-          'Content-Type': 'application/json; charset=utf-8',
-        },
+        headers: headers,
         body: body,
       );
+      if (response.statusCode == 412) {
+        throw const WebDavException('远端密码库已变化，请重新同步');
+      }
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw WebDavException('上传失败：HTTP ${response.statusCode}');
       }

@@ -160,4 +160,25 @@ void main() {
       expect(methods, ['MKCOL', 'PUT']);
     },
   );
+
+  test('adds If-Match when uploading over a known remote etag', () async {
+    late http.Request capturedPut;
+    final service = WebDavSyncService(
+      client: MockClient((request) async {
+        if (request.method == 'PUT') capturedPut = request;
+        if (request.method == 'MKCOL') return http.Response('', 405);
+        return http.Response('', 204);
+      }),
+    );
+
+    await service.uploadVault(
+      url: 'https://dav.jianguoyun.com/dav/',
+      account: 'user@example.com',
+      appPassword: 'app-password',
+      body: '{"version":1}',
+      expectedEtag: 'etag-remote',
+    );
+
+    expect(capturedPut.headers['If-Match'], 'etag-remote');
+  });
 }

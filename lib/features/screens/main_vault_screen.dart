@@ -399,6 +399,7 @@ class _CategoryTreeState extends State<_CategoryTree> {
 IconData categoryIcon(Category category) {
   return switch (category.id) {
     Category.websiteId => Icons.public,
+    Category.emailId => Icons.email_outlined,
     Category.appId => Icons.apps_outlined,
     Category.gameId => Icons.sports_esports_outlined,
     Category.otherId => Icons.archive_outlined,

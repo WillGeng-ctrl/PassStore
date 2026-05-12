@@ -19,6 +19,7 @@ class VaultMerge {
     required Vault base,
     required Vault local,
     required Vault remote,
+    bool hasBase = true,
   }) {
     final baseEntries = {for (final entry in base.entries) entry.id: entry};
     final localEntries = {for (final entry in local.entries) entry.id: entry};
@@ -48,10 +49,12 @@ class VaultMerge {
 
       if (localEntry == null && remoteEntry == null) continue;
       if (localEntry == null) {
+        if (hasBase) continue;
         mergedEntries.add(remoteEntry!);
         continue;
       }
       if (remoteEntry == null) {
+        if (hasBase) continue;
         mergedEntries.add(localEntry);
         continue;
       }
@@ -66,15 +69,13 @@ class VaultMerge {
         final remoteChanged = remoteValue != baseValue;
 
         if (localChanged && remoteChanged && localValue != remoteValue) {
-          conflicts.add(
-            FieldConflict(
-              entryId: id,
-              fieldName: field,
-              localValue: localValue,
-              remoteValue: remoteValue,
-            ),
+          fieldValues[field] = _newerFieldValue(
+            field: field,
+            localEntry: localEntry,
+            remoteEntry: remoteEntry,
+            localValue: localValue,
+            remoteValue: remoteValue,
           );
-          fieldValues[field] = localValue;
         } else if (localChanged) {
           fieldValues[field] = localValue;
         } else if (remoteChanged) {
@@ -87,11 +88,28 @@ class VaultMerge {
       mergedEntries.add(merged);
     }
 
+    final mergedCategories = _mergeCategories(
+      base: base.categories,
+      local: local.categories,
+      remote: remote.categories,
+      hasBase: hasBase,
+    );
+    final validCategoryIds = mergedCategories
+        .map((category) => category.id)
+        .toSet();
+    final normalizedEntries = mergedEntries.map((entry) {
+      if (validCategoryIds.contains(entry.categoryId)) return entry;
+      return entry.copyWith(categoryId: Category.otherId);
+    }).toList();
+
     final mergedVault = local.copyWith(
-      revision: local.revision > remote.revision ? local.revision + 1 : remote.revision + 1,
+      revision: local.revision > remote.revision
+          ? local.revision + 1
+          : remote.revision + 1,
       updatedAt: _maxDate(local.updatedAt, remote.updatedAt),
-      categories: _mergeCategories(local.categories, remote.categories),
-      entries: mergedEntries..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)),
+      categories: mergedCategories,
+      entries: normalizedEntries
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)),
     );
     return VaultMergeResult(vault: mergedVault, conflicts: conflicts);
   }
@@ -104,6 +122,21 @@ class VaultMerge {
   static DateTime _maxDate(DateTime left, DateTime right) {
     if (left.isAfter(right)) return left;
     return right;
+  }
+
+  static Object? _newerFieldValue({
+    required String field,
+    required VaultEntry localEntry,
+    required VaultEntry remoteEntry,
+    required Object? localValue,
+    required Object? remoteValue,
+  }) {
+    final localUpdatedAt =
+        localEntry.fieldUpdatedAt[field] ?? localEntry.updatedAt;
+    final remoteUpdatedAt =
+        remoteEntry.fieldUpdatedAt[field] ?? remoteEntry.updatedAt;
+    if (remoteUpdatedAt.isAfter(localUpdatedAt)) return remoteValue;
+    return localValue;
   }
 
   static Object? _valueFor(VaultEntry entry, String field) {
@@ -123,6 +156,12 @@ class VaultMerge {
     VaultEntry entry,
     Map<String, Object?> fields,
   ) {
+    final deletedAt = fields.containsKey('deletedAt')
+        ? fields['deletedAt'] == null
+              ? null
+              : DateTime.parse(fields['deletedAt']! as String)
+        : entry.deletedAt;
+
     return entry.copyWith(
       title: fields['title'] as String? ?? entry.title,
       account: fields['account'] as String? ?? entry.account,
@@ -130,34 +169,67 @@ class VaultMerge {
       url: fields['url'] as String? ?? entry.url,
       notes: fields['notes'] as String? ?? entry.notes,
       categoryId: fields['categoryId'] as String? ?? entry.categoryId,
-      deletedAt: fields.containsKey('deletedAt') && fields['deletedAt'] != null
-          ? DateTime.parse(fields['deletedAt']! as String)
-          : entry.deletedAt,
+      deletedAt: deletedAt,
     );
   }
 
-  static List<Category> _mergeCategories(
-    List<Category> local,
-    List<Category> remote,
-  ) {
-    final merged = <String, Category>{};
-    for (final category in [...local, ...remote]) {
-      final existing = merged[category.id];
-      if (existing == null || category.updatedAt.isAfter(existing.updatedAt)) {
-        merged[category.id] = category;
+  static List<Category> _mergeCategories({
+    required List<Category> base,
+    required List<Category> local,
+    required List<Category> remote,
+    required bool hasBase,
+  }) {
+    final baseById = {for (final category in base) category.id: category};
+    final localById = {for (final category in local) category.id: category};
+    final remoteById = {for (final category in remote) category.id: category};
+    final ids = <String>{
+      ...baseById.keys,
+      ...localById.keys,
+      ...remoteById.keys,
+    };
+
+    final merged = <Category>[];
+    for (final id in ids) {
+      final baseCategory = baseById[id];
+      final localCategory = localById[id];
+      final remoteCategory = remoteById[id];
+
+      if (baseCategory?.isBuiltIn ?? false) {
+        final fallback = baseCategory!;
+        merged.add(
+          _newerCategory(localCategory ?? fallback, remoteCategory ?? fallback),
+        );
+        continue;
       }
+
+      if (hasBase &&
+          baseCategory != null &&
+          (localCategory == null || remoteCategory == null)) {
+        continue;
+      }
+
+      final category = switch ((localCategory, remoteCategory)) {
+        (final Category left, final Category right) => _newerCategory(
+          left,
+          right,
+        ),
+        (final Category only, null) => only,
+        (null, final Category only) => only,
+        (null, null) => null,
+      };
+      if (category != null) merged.add(category);
     }
-    final result = merged.values.toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-    return result;
+    return merged..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+  }
+
+  static Category _newerCategory(Category left, Category right) {
+    if (left.updatedAt.isAfter(right.updatedAt)) return left;
+    return right;
   }
 }
 
 class VaultMergeResult {
-  const VaultMergeResult({
-    required this.vault,
-    required this.conflicts,
-  });
+  const VaultMergeResult({required this.vault, required this.conflicts});
 
   final Vault vault;
   final List<FieldConflict> conflicts;

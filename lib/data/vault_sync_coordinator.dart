@@ -93,6 +93,7 @@ class VaultSyncCoordinator {
           credentials: credentials,
           remoteEtag: null,
           remoteLastModified: null,
+          onlyIfMissing: true,
         );
       }
 
@@ -113,12 +114,13 @@ class VaultSyncCoordinator {
 
       final baseVault = await _decodeBaseVault(
         metadata.basePayload,
-        effectiveRemotePassword,
+        masterPasswords: [effectiveRemotePassword, masterPassword],
       );
       final merge = VaultMerge.merge(
         base: baseVault ?? localVault,
         local: localVault,
         remote: remoteVault,
+        hasBase: baseVault != null,
       );
 
       if (merge.conflicts.isNotEmpty) {
@@ -163,21 +165,27 @@ class VaultSyncCoordinator {
   }
 
   Future<Vault?> _decodeBaseVault(
-    EncryptedVaultPayload? payload,
-    String masterPassword,
-  ) async {
+    EncryptedVaultPayload? payload, {
+    required Iterable<String> masterPasswords,
+  }) async {
     if (payload == null) return null;
-    try {
-      final plaintext = await _crypto.decryptString(
-        payload,
-        masterPassword: masterPassword,
-      );
-      return Vault.fromJson(
-        (jsonDecode(plaintext) as Map<String, Object?>).cast<String, Object?>(),
-      );
-    } on VaultCryptoException {
-      return null;
+    final triedPasswords = <String>{};
+    for (final masterPassword in masterPasswords) {
+      if (!triedPasswords.add(masterPassword)) continue;
+      try {
+        final plaintext = await _crypto.decryptString(
+          payload,
+          masterPassword: masterPassword,
+        );
+        return Vault.fromJson(
+          (jsonDecode(plaintext) as Map<String, Object?>)
+              .cast<String, Object?>(),
+        );
+      } on VaultCryptoException {
+        continue;
+      }
     }
+    return null;
   }
 
   Future<Vault> _decodeVaultPayloadJson(
@@ -202,6 +210,7 @@ class VaultSyncCoordinator {
     required SyncCredentials credentials,
     required String? remoteEtag,
     required String? remoteLastModified,
+    bool onlyIfMissing = false,
   }) async {
     final payload = await _crypto.encryptString(
       plaintext: jsonEncode(vault.toJson()),
@@ -213,6 +222,8 @@ class VaultSyncCoordinator {
       account: credentials.account,
       appPassword: credentials.appPassword,
       body: body,
+      expectedEtag: remoteEtag,
+      onlyIfMissing: onlyIfMissing,
     );
     return VaultSyncResult(
       status: VaultSyncStatus.synced,

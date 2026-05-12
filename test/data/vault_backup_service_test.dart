@@ -21,7 +21,9 @@ void main() {
     final restored = await service.importEncryptedPayload(backupPath);
 
     expect(restored.version, payload.version);
-    expect(restored.algorithm, payload.algorithm);
     expect(restored.ciphertext, payload.ciphertext);
+    expect(restored.toJson(), isNot(contains('algorithm')));
+    expect(restored.toJson(), isNot(contains('kdf')));
+    expect(restored.toJson(), isNot(contains('kdfParams')));
   });
 }

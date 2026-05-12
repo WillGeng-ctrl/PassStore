@@ -368,6 +368,9 @@ class _PassStoreAppState extends State<PassStoreApp> {
       _webDavSettings = webDavSettings;
       _syncStatus = _syncStatusFor(webDavSettings, _syncMetadata);
     });
+    if (currentVault != null) {
+      await _markUnsynced(webDavSettings, scheduleSync: false);
+    }
   }
 
   Future<void> _savePreferences(AppPreferences preferences) async {

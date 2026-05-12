@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:passstore/core/models/category.dart';
+import 'package:passstore/core/models/strong_password_rules.dart';
 import 'package:passstore/core/models/vault_entry.dart';
 import 'package:passstore/core/services/vault_merge.dart';
 import 'package:passstore/core/services/vault_service.dart';
@@ -491,7 +492,7 @@ void main() {
     expect(find.text('已同步'), findsNothing);
   });
 
-  testWidgets('WebDAV credentials stored in vault drive sync status', (
+  testWidgets('WebDAV credentials in vault do not imply a completed sync', (
     tester,
   ) async {
     final now = DateTime.utc(2026, 5, 12);
@@ -523,7 +524,8 @@ void main() {
       ),
     );
 
-    expect(find.text('已同步'), findsOneWidget);
+    expect(find.text('未同步'), findsOneWidget);
+    expect(find.text('已同步'), findsNothing);
     expect(find.text('未配置同步'), findsNothing);
   });
 
@@ -703,7 +705,116 @@ void main() {
     );
 
     expect(find.byType(DropdownButtonFormField<String>), findsNothing);
-    expect(find.byType(ChoiceChip), findsNWidgets(4));
+    expect(find.byType(ChoiceChip), findsNWidgets(5));
+  });
+
+  testWidgets('entry dialog generates a strong password', (tester) async {
+    final now = DateTime.utc(2026, 5, 12);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditEntryDialog(
+            categories: Category.builtIns(now),
+            initialCategoryId: Category.websiteId,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byIcon(Icons.auto_awesome));
+    await tester.pump();
+
+    final password = tester
+        .widget<TextField>(find.byType(TextField).at(2))
+        .controller!
+        .text;
+
+    expect(password.length, 20);
+    expect(password, matches(RegExp('[a-z]')));
+    expect(password, matches(RegExp('[A-Z]')));
+    expect(password, matches(RegExp(r'\d')));
+    expect(password, matches(RegExp(r'[!@#%^&*()_\-=+\[\]{}]')));
+  });
+
+  testWidgets('entry dialog uses configured strong password rules', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 5, 12);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditEntryDialog(
+            categories: Category.builtIns(now),
+            initialCategoryId: Category.websiteId,
+            strongPasswordRules: const StrongPasswordRules(
+              length: 12,
+              includeUppercase: false,
+              includeLowercase: false,
+              includeDigits: true,
+              includeSymbols: false,
+              excludeAmbiguous: true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byIcon(Icons.auto_awesome));
+    await tester.pump();
+
+    final password = tester
+        .widget<TextField>(find.byType(TextField).at(2))
+        .controller!
+        .text;
+
+    expect(password.length, 12);
+    expect(password, matches(RegExp(r'^[2-9]+$')));
+  });
+
+  testWidgets('entry dialog confirms before replacing an existing password', (
+    tester,
+  ) async {
+    final now = DateTime.utc(2026, 5, 12);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EditEntryDialog(
+            categories: Category.builtIns(now),
+            initialCategoryId: Category.websiteId,
+          ),
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField).at(2), 'existing-secret');
+    await tester.tap(find.byIcon(Icons.auto_awesome));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AlertDialog), findsNWidgets(2));
+
+    await tester.tap(find.byType(OutlinedButton).last);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(2)).controller!.text,
+      'existing-secret',
+    );
+
+    await tester.tap(find.byIcon(Icons.auto_awesome));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FilledButton).last);
+    await tester.pumpAndSettle();
+
+    final password = tester
+        .widget<TextField>(find.byType(TextField).at(2))
+        .controller!
+        .text;
+
+    expect(password, isNot('existing-secret'));
+    expect(password.length, 20);
   });
 
   testWidgets('entry dialog uses compact title and equal action buttons', (
@@ -1031,8 +1142,8 @@ void main() {
     expect(find.byType(DropdownButtonFormField<int>), findsNothing);
     expect(find.byType(DropdownButton<int>), findsNothing);
 
-    final autoLockControl = find.byType(SegmentedButton<int>);
-    expect(autoLockControl, findsOneWidget);
+    final settingControls = find.byType(SegmentedButton<int>);
+    expect(settingControls, findsNWidgets(2));
 
     await tester.tap(find.text('永不'));
     await tester.pumpAndSettle();
@@ -1043,6 +1154,78 @@ void main() {
       AppPreferences.defaults.clipboardClearSeconds,
     );
     expect(find.text('安全设置已保存'), findsNothing);
+  });
+
+  testWidgets('strong password rules can be changed in settings', (
+    tester,
+  ) async {
+    final saved = <AppPreferences>[];
+
+    await tester.binding.setSurfaceSize(const Size(1200, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          initialSettings: WebDavSettings.empty,
+          initialPreferences: AppPreferences.defaults,
+          onSaveWebDav: (_, _, _) async {},
+          onTestWebDav: (_, _, _) async => '连接成功',
+          onSavePreferences: (preferences) async => saved.add(preferences),
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
+          onChangeMasterPassword: () async {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('强密码生成规则'), findsOneWidget);
+    expect(find.byType(CheckboxListTile), findsNothing);
+
+    await tester.tap(find.text('24 位'));
+    await tester.pumpAndSettle();
+
+    expect(saved.last.strongPasswordRules.length, 24);
+
+    await tester.tap(find.text('符号'));
+    await tester.pumpAndSettle();
+
+    expect(saved.last.strongPasswordRules.includeSymbols, isFalse);
+    expect(saved.last.autoLockMinutes, AppPreferences.defaults.autoLockMinutes);
+  });
+
+  testWidgets('strong password options stay interactive while saving', (
+    tester,
+  ) async {
+    final saveCompleter = Completer<void>();
+
+    await tester.binding.setSurfaceSize(const Size(1200, 1100));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SettingsScreen(
+          initialSettings: WebDavSettings.empty,
+          initialPreferences: AppPreferences.defaults,
+          onSaveWebDav: (_, _, _) async {},
+          onTestWebDav: (_, _, _) async => '连接成功',
+          onSavePreferences: (_) => saveCompleter.future,
+          onExportBackup: () async => '备份已导出',
+          onImportBackup: () async => '已从备份恢复',
+          onChangeMasterPassword: () async {},
+          onBack: () {},
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('符号'));
+    await tester.pump();
+
+    final checkboxes = tester.widgetList<Checkbox>(find.byType(Checkbox));
+    expect(checkboxes.every((checkbox) => checkbox.onChanged != null), isTrue);
+
+    saveCompleter.complete();
   });
 
   testWidgets('backup actions show success on their buttons', (tester) async {

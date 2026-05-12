@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/models/category.dart';
+import '../../core/models/strong_password_rules.dart';
 import '../../core/models/vault_entry.dart';
+import '../../core/services/strong_password_generator.dart';
 import 'passstore_dialog.dart';
 
 class EditEntryDialog extends StatefulWidget {
@@ -14,12 +16,14 @@ class EditEntryDialog extends StatefulWidget {
     required this.initialCategoryId,
     this.entry,
     this.clipboardClearSeconds = 30,
+    this.strongPasswordRules = StrongPasswordRules.defaults,
   });
 
   final List<Category> categories;
   final String initialCategoryId;
   final VaultEntry? entry;
   final int clipboardClearSeconds;
+  final StrongPasswordRules strongPasswordRules;
 
   @override
   State<EditEntryDialog> createState() => _EditEntryDialogState();
@@ -77,7 +81,15 @@ class _EditEntryDialogState extends State<EditEntryDialog> {
               const SizedBox(height: 12),
               _copyField(controller: _account, label: '账号'),
               const SizedBox(height: 12),
-              _copyField(controller: _password, label: '密码'),
+              _copyField(
+                controller: _password,
+                label: '密码',
+                trailing: IconButton(
+                  tooltip: '生成强密码',
+                  icon: const Icon(Icons.auto_awesome),
+                  onPressed: _generatePassword,
+                ),
+              ),
               const SizedBox(height: 12),
               _copyField(controller: _url, label: '网址'),
               const SizedBox(height: 12),
@@ -180,6 +192,35 @@ class _EditEntryDialogState extends State<EditEntryDialog> {
   String _formatClipboardDelay(int seconds) {
     if (seconds >= 60 && seconds % 60 == 0) return '${seconds ~/ 60}分钟';
     return '$seconds秒';
+  }
+
+  Future<void> _generatePassword() async {
+    if (_password.text.isNotEmpty) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const PassStoreDialogTitle('替换当前密码？'),
+            content: const Text('生成强密码会覆盖当前密码。'),
+            actionsPadding: EdgeInsets.zero,
+            actions: [
+              PassStoreDialogActions(
+                primaryLabel: '替换',
+                onPrimary: () => Navigator.pop(context, true),
+                onCancel: () => Navigator.pop(context, false),
+              ),
+            ],
+          );
+        },
+      );
+      if (confirmed != true) return;
+    }
+
+    setState(() {
+      _password.text = StrongPasswordGenerator.generate(
+        widget.strongPasswordRules,
+      );
+    });
   }
 
   void _save() {

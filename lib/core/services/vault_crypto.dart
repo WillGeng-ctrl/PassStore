@@ -3,21 +3,24 @@ import 'dart:convert';
 import 'package:cryptography/cryptography.dart';
 
 class VaultCrypto {
-  VaultCrypto({
-    Argon2id? kdf,
-    AesGcm? cipher,
-  })  : _kdf = kdf ??
-            Argon2id(
-              parallelism: 2,
-              memory: 8192,
-              iterations: 3,
-              hashLength: 32,
-            ),
-        _cipher = cipher ?? AesGcm.with256bits();
+  VaultCrypto({Argon2id? kdf, AesGcm? cipher})
+    : _kdf =
+          kdf ??
+          Argon2id(
+            parallelism: defaultKdfParams['parallelism']!,
+            memory: defaultKdfParams['memory']!,
+            iterations: defaultKdfParams['iterations']!,
+            hashLength: defaultKdfParams['hashLength']!,
+          ),
+      _cipher = cipher ?? AesGcm.with256bits();
 
   static const formatVersion = 1;
-  static const algorithmName = 'AES-256-GCM';
-  static const kdfName = 'Argon2id';
+  static const defaultKdfParams = {
+    'parallelism': 1,
+    'memory': 19456,
+    'iterations': 2,
+    'hashLength': 32,
+  };
 
   final Argon2id _kdf;
   final AesGcm _cipher;
@@ -31,14 +34,6 @@ class VaultCrypto {
     final box = await _cipher.encryptString(plaintext, secretKey: key);
     return EncryptedVaultPayload(
       version: formatVersion,
-      algorithm: algorithmName,
-      kdf: kdfName,
-      kdfParams: {
-        'parallelism': _kdf.parallelism,
-        'memory': _kdf.memory,
-        'iterations': _kdf.iterations,
-        'hashLength': _kdf.hashLength,
-      },
       salt: base64Encode(salt),
       nonce: base64Encode(box.nonce),
       mac: base64Encode(box.mac.bytes),
@@ -52,11 +47,7 @@ class VaultCrypto {
   }) async {
     try {
       final salt = base64Decode(payload.salt);
-      final key = await _deriveKey(
-        masterPassword: masterPassword,
-        salt: salt,
-        params: payload.kdfParams,
-      );
+      final key = await _deriveKey(masterPassword: masterPassword, salt: salt);
       final box = SecretBox(
         base64Decode(payload.ciphertext),
         nonce: base64Decode(payload.nonce),
@@ -64,26 +55,19 @@ class VaultCrypto {
       );
       return await _cipher.decryptString(box, secretKey: key);
     } on SecretBoxAuthenticationError catch (_) {
-      throw const VaultCryptoException('主密码不正确或密码库已损坏');
+      throw const VaultCryptoException("涓诲瘑鐮佷笉姝ｇ‘鎴栧瘑鐮佸簱宸叉崯鍧?");
     } on FormatException catch (_) {
-      throw const VaultCryptoException('密码库格式无效');
+      throw const VaultCryptoException("瀵嗙爜搴撴牸寮忔棤鏁?");
+    } on TypeError catch (_) {
+      throw const VaultCryptoException("瀵嗙爜搴撴牸寮忔棤鏁?");
     }
   }
 
   Future<SecretKey> _deriveKey({
     required String masterPassword,
     required List<int> salt,
-    Map<String, Object?>? params,
   }) {
-    final effectiveKdf = params == null
-        ? _kdf
-        : Argon2id(
-            parallelism: params['parallelism']! as int,
-            memory: params['memory']! as int,
-            iterations: params['iterations']! as int,
-            hashLength: params['hashLength']! as int,
-          );
-    return effectiveKdf.deriveKey(
+    return _kdf.deriveKey(
       secretKey: SecretKey(utf8.encode(masterPassword)),
       nonce: salt,
     );
@@ -93,9 +77,6 @@ class VaultCrypto {
 class EncryptedVaultPayload {
   const EncryptedVaultPayload({
     required this.version,
-    required this.algorithm,
-    required this.kdf,
-    required this.kdfParams,
     required this.salt,
     required this.nonce,
     required this.mac,
@@ -103,31 +84,22 @@ class EncryptedVaultPayload {
   });
 
   final int version;
-  final String algorithm;
-  final String kdf;
-  final Map<String, Object?> kdfParams;
   final String salt;
   final String nonce;
   final String mac;
   final String ciphertext;
 
   Map<String, Object?> toJson() => {
-        'version': version,
-        'algorithm': algorithm,
-        'kdf': kdf,
-        'kdfParams': kdfParams,
-        'salt': salt,
-        'nonce': nonce,
-        'mac': mac,
-        'ciphertext': ciphertext,
-      };
+    'version': version,
+    'salt': salt,
+    'nonce': nonce,
+    'mac': mac,
+    'ciphertext': ciphertext,
+  };
 
   factory EncryptedVaultPayload.fromJson(Map<String, Object?> json) {
     return EncryptedVaultPayload(
       version: json['version']! as int,
-      algorithm: json['algorithm']! as String,
-      kdf: json['kdf']! as String,
-      kdfParams: (json['kdfParams']! as Map<String, Object?>),
       salt: json['salt']! as String,
       nonce: json['nonce']! as String,
       mac: json['mac']! as String,

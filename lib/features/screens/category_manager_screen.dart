@@ -80,8 +80,11 @@ class CategoryManagerScreen extends StatelessWidget {
 
   Widget _row(BuildContext context, Category category, {bool locked = false}) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 6),
       child: ListTile(
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        minVerticalPadding: 8,
         leading: Icon(locked ? Icons.lock_outline : Icons.folder_outlined),
         title: Text(category.name),
         subtitle: Text(locked ? '默认分类，无法编辑' : '自定义分类'),

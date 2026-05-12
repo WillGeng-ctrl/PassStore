@@ -3,14 +3,18 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../core/models/strong_password_rules.dart';
+
 class AppPreferences {
   const AppPreferences({
     required this.autoLockMinutes,
     required this.clipboardClearSeconds,
+    this.strongPasswordRules = StrongPasswordRules.defaults,
   });
 
   final int autoLockMinutes;
   final int clipboardClearSeconds;
+  final StrongPasswordRules strongPasswordRules;
 
   static const defaults = AppPreferences(
     autoLockMinutes: 15,
@@ -24,26 +28,38 @@ class AppPreferences {
       ? null
       : Duration(seconds: clipboardClearSeconds);
 
-  AppPreferences copyWith({int? autoLockMinutes, int? clipboardClearSeconds}) {
+  AppPreferences copyWith({
+    int? autoLockMinutes,
+    int? clipboardClearSeconds,
+    StrongPasswordRules? strongPasswordRules,
+  }) {
     return AppPreferences(
       autoLockMinutes: autoLockMinutes ?? this.autoLockMinutes,
       clipboardClearSeconds:
           clipboardClearSeconds ?? this.clipboardClearSeconds,
+      strongPasswordRules: strongPasswordRules ?? this.strongPasswordRules,
     );
   }
 
   Map<String, Object?> toJson() => {
     'autoLockMinutes': autoLockMinutes,
     'clipboardClearSeconds': clipboardClearSeconds,
+    'strongPasswordRules': strongPasswordRules.toJson(),
   };
 
   factory AppPreferences.fromJson(Map<String, Object?> json) {
+    final strongPasswordRulesJson = json['strongPasswordRules'];
     return AppPreferences(
       autoLockMinutes:
           json['autoLockMinutes'] as int? ?? defaults.autoLockMinutes,
       clipboardClearSeconds:
           json['clipboardClearSeconds'] as int? ??
           defaults.clipboardClearSeconds,
+      strongPasswordRules: StrongPasswordRules.fromJson(
+        strongPasswordRulesJson is Map
+            ? strongPasswordRulesJson.cast<String, Object?>()
+            : null,
+      ),
     );
   }
 
@@ -51,11 +67,13 @@ class AppPreferences {
   bool operator ==(Object other) {
     return other is AppPreferences &&
         other.autoLockMinutes == autoLockMinutes &&
-        other.clipboardClearSeconds == clipboardClearSeconds;
+        other.clipboardClearSeconds == clipboardClearSeconds &&
+        other.strongPasswordRules == strongPasswordRules;
   }
 
   @override
-  int get hashCode => Object.hash(autoLockMinutes, clipboardClearSeconds);
+  int get hashCode =>
+      Object.hash(autoLockMinutes, clipboardClearSeconds, strongPasswordRules);
 }
 
 class AppPreferencesStore {

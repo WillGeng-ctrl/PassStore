@@ -76,6 +76,63 @@ void main() {
   });
 
   test(
+    'keeps local additions when syncing remote file without base metadata',
+    () async {
+      final now = DateTime.utc(2026, 5, 12);
+      var local = VaultService.createEmptyVault(now: now);
+      local = VaultService.addCategory(
+        local,
+        name: 'Work',
+        now: now.add(const Duration(minutes: 1)),
+      );
+      final work = local.categories.singleWhere(
+        (category) => category.name == 'Work',
+      );
+      local = VaultService.upsertEntry(
+        local,
+        VaultEntry.create(
+          title: 'local-only',
+          account: 'local@example.com',
+          password: 'secret',
+          url: 'https://example.com/local',
+          notes: '',
+          categoryId: work.id,
+          now: now.add(const Duration(minutes: 2)),
+        ),
+        now: now.add(const Duration(minutes: 2)),
+      );
+      final remoteVault = VaultService.createEmptyVault(now: now);
+      final remotePayload = await _encodeVault(crypto, remoteVault, 'password');
+      final remote = FakeRemoteStore(
+        nextDownload: RemoteVaultFile(body: jsonEncode(remotePayload.toJson())),
+      );
+      final coordinator = VaultSyncCoordinator(crypto: crypto, remote: remote);
+
+      final result = await coordinator.sync(
+        localVault: local,
+        masterPassword: 'password',
+        credentials: _credentials,
+        metadata: SyncMetadata.empty,
+      );
+
+      expect(result.status, VaultSyncStatus.synced);
+      final uploaded = await _decodeVault(
+        crypto,
+        remote.uploads.single,
+        'password',
+      );
+      expect(
+        uploaded.categories.map((category) => category.name),
+        contains('Work'),
+      );
+      expect(
+        uploaded.entries.map((entry) => entry.title),
+        contains('local-only'),
+      );
+    },
+  );
+
+  test(
     'does not upload when remote vault needs a different master password',
     () async {
       final remoteVault = _vaultWithEntry('remote');
@@ -173,6 +230,80 @@ void main() {
       );
     },
   );
+
+  test(
+    'uses the local baseline password when the remote master password changed',
+    () async {
+      final now = DateTime.utc(2026, 5, 12);
+      var base = VaultService.createEmptyVault(now: now);
+      base = VaultService.upsertEntry(
+        base,
+        VaultEntry.create(
+          title: 'deleted-remotely',
+          account: 'deleted@example.com',
+          password: 'secret',
+          url: 'https://example.com',
+          notes: '',
+          categoryId: Category.websiteId,
+          now: now.add(const Duration(minutes: 1)),
+        ),
+        now: now.add(const Duration(minutes: 1)),
+      );
+      final entry = base.entries.single;
+      final remoteVault = VaultService.permanentlyDeleteEntry(
+        base,
+        entryId: entry.id,
+        now: now.add(const Duration(minutes: 2)),
+      );
+      final basePayload = await _encodeVault(crypto, base, 'old');
+      final remotePayload = await _encodeVault(crypto, remoteVault, 'new');
+      final remote = FakeRemoteStore(
+        nextDownload: RemoteVaultFile(body: jsonEncode(remotePayload.toJson())),
+      );
+      final coordinator = VaultSyncCoordinator(crypto: crypto, remote: remote);
+
+      final result = await coordinator.sync(
+        localVault: base,
+        masterPassword: 'old',
+        remoteMasterPassword: 'new',
+        credentials: _credentials,
+        metadata: SyncMetadata(basePayload: basePayload),
+      );
+
+      expect(result.status, VaultSyncStatus.synced);
+      final uploaded = await _decodeVault(crypto, remote.uploads.single, 'new');
+      expect(uploaded.entries.any((item) => item.id == entry.id), isFalse);
+    },
+  );
+
+  test('passes the downloaded etag when uploading merged vault', () async {
+    final base = VaultService.createEmptyVault(now: DateTime.utc(2026, 5, 12));
+    final local = _upsert(base, 'local-only', DateTime.utc(2026, 5, 12, 1));
+    final remoteVault = _upsert(
+      base,
+      'remote-only',
+      DateTime.utc(2026, 5, 12, 2),
+    );
+    final basePayload = await _encodeVault(crypto, base, 'password');
+    final remotePayload = await _encodeVault(crypto, remoteVault, 'password');
+    final remote = FakeRemoteStore(
+      nextDownload: RemoteVaultFile(
+        body: jsonEncode(remotePayload.toJson()),
+        etag: 'etag-remote',
+      ),
+    );
+    final coordinator = VaultSyncCoordinator(crypto: crypto, remote: remote);
+
+    final result = await coordinator.sync(
+      localVault: local,
+      masterPassword: 'password',
+      credentials: _credentials,
+      metadata: SyncMetadata(basePayload: basePayload),
+    );
+
+    expect(result.status, VaultSyncStatus.synced);
+    expect(remote.uploadExpectedEtags.single, 'etag-remote');
+  });
 }
 
 const _credentials = SyncCredentials(
@@ -186,6 +317,7 @@ class FakeRemoteStore implements VaultRemoteStore {
 
   RemoteVaultFile? nextDownload;
   final uploads = <String>[];
+  final uploadExpectedEtags = <String?>[];
 
   @override
   Future<RemoteVaultFile?> downloadVaultFile({
@@ -202,7 +334,10 @@ class FakeRemoteStore implements VaultRemoteStore {
     required String account,
     required String appPassword,
     required String body,
+    String? expectedEtag,
+    bool onlyIfMissing = false,
   }) async {
+    uploadExpectedEtags.add(expectedEtag);
     uploads.add(body);
   }
 }
