@@ -87,7 +87,7 @@ class VaultSyncCoordinator {
       );
 
       if (remoteFile == null) {
-        return _uploadSyncedVault(
+        return await _uploadSyncedVault(
           vault: localVault,
           masterPassword: masterPassword,
           credentials: credentials,
@@ -132,7 +132,7 @@ class VaultSyncCoordinator {
         );
       }
 
-      return _uploadSyncedVault(
+      return await _uploadSyncedVault(
         vault: merge.vault,
         masterPassword: effectiveUploadPassword,
         credentials: credentials,

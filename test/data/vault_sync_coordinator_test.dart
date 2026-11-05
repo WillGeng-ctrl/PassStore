@@ -37,6 +37,40 @@ void main() {
     expect(result.metadata?.basePayload, isNotNull);
   });
 
+  for (final hasRemote in [false, true]) {
+    test(
+      'reports asynchronous upload failures (${hasRemote ? 'merged upload' : 'first upload'})',
+      () async {
+        final local = _vaultWithEntry('local-only');
+        final payload = await _encodeVault(crypto, local, 'password');
+        final metadata = SyncMetadata(basePayload: payload);
+        final remote = FakeRemoteStore(
+          nextDownload: hasRemote
+              ? RemoteVaultFile(body: jsonEncode(payload.toJson()))
+              : null,
+          uploadError: const WebDavException('Upload failed for test'),
+        );
+        final coordinator = VaultSyncCoordinator(
+          crypto: crypto,
+          remote: remote,
+        );
+
+        final result = await coordinator.sync(
+          localVault: local,
+          masterPassword: 'password',
+          credentials: _credentials,
+          metadata: metadata,
+        );
+
+        expect(result.status, VaultSyncStatus.failed);
+        expect(result.metadata?.hasUnsyncedChanges, isTrue);
+        expect(result.metadata?.basePayload, same(payload));
+        expect(result.message, 'Upload failed for test');
+        expect(remote.uploads, isEmpty);
+      },
+    );
+  }
+
   test('merges remote and local changes before uploading', () async {
     final base = VaultService.createEmptyVault(now: DateTime.utc(2026, 5, 12));
     final local = _upsert(base, 'local-only', DateTime.utc(2026, 5, 12, 1));
@@ -313,9 +347,10 @@ const _credentials = SyncCredentials(
 );
 
 class FakeRemoteStore implements VaultRemoteStore {
-  FakeRemoteStore({this.nextDownload});
+  FakeRemoteStore({this.nextDownload, this.uploadError});
 
   RemoteVaultFile? nextDownload;
+  final Object? uploadError;
   final uploads = <String>[];
   final uploadExpectedEtags = <String?>[];
 
@@ -337,6 +372,8 @@ class FakeRemoteStore implements VaultRemoteStore {
     String? expectedEtag,
     bool onlyIfMissing = false,
   }) async {
+    final error = uploadError;
+    if (error != null) throw error;
     uploadExpectedEtags.add(expectedEtag);
     uploads.add(body);
   }

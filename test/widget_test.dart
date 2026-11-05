@@ -1336,7 +1336,7 @@ void main() {
     );
   });
 
-  testWidgets('settings about section shows version and author contact', (
+  testWidgets('settings about section shows version and project feedback', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 1100));
@@ -1359,6 +1359,9 @@ void main() {
     );
 
     expect(find.text('版本号：1.0.0+0'), findsOneWidget);
-    expect(find.text('联系作者：https://github.com/WillGeng-ctrl/PassStore/issues'), findsOneWidget);
+    expect(
+      find.text('项目反馈：https://github.com/WillGeng-ctrl/PassStore/issues'),
+      findsOneWidget,
+    );
   });
 }

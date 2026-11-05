@@ -10,3 +10,25 @@ coverage/
 ios/Flutter/.last_build_id
 macos/Flutter/ephemeral/
 windows/flutter/ephemeral/
+
+# Local password vaults, backups, and runtime settings.
+.passstore/
+*.vault
+*.vault.*
+/settings.json
+/preferences.json
+/sync_metadata.json
+
+# Environment secrets and private keys.
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Machine-specific IDE configuration.
+.idea/
+*.iml

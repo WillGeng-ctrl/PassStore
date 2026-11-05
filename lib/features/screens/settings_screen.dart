@@ -174,7 +174,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SizedBox(height: 8),
                 Text('版本号：1.0.0+0'),
                 SizedBox(height: 6),
-                Text('联系作者：https://github.com/WillGeng-ctrl/PassStore/issues'),
+                Text('项目反馈：https://github.com/WillGeng-ctrl/PassStore/issues'),
               ]),
             ],
           ),

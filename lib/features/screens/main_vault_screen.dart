@@ -282,72 +282,75 @@ class _CategoryTreeState extends State<_CategoryTree> {
     final customs = widget.categories
         .where((category) => !category.isBuiltIn)
         .toList();
-    return Container(
+    return SizedBox(
       width: 248,
-      color: const Color(0xfff8fafc),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
-            child: FilledButton.icon(
-              onPressed: widget.onNewEntry,
-              icon: const Icon(Icons.add),
-              label: const Text('新建条目'),
+      child: Material(
+        color: const Color(0xfff8fafc),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
+              child: FilledButton.icon(
+                onPressed: widget.onNewEntry,
+                icon: const Icon(Icons.add),
+                label: const Text('新建条目'),
+              ),
             ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                _treeItem(
-                  icon: Icons.inventory_2_outlined,
-                  label: '全部',
-                  selected: widget.selectedCategoryId == null,
-                  onTap: widget.onSelectAll,
-                ),
-                _treeHeader(
-                  '分类',
-                  _categoryExpanded,
-                  () => setState(() => _categoryExpanded = !_categoryExpanded),
-                ),
-                if (_categoryExpanded)
-                  ...builtIns.map(
-                    (category) => _categoryItem(category, depth: 1),
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _treeItem(
+                    icon: Icons.inventory_2_outlined,
+                    label: '全部',
+                    selected: widget.selectedCategoryId == null,
+                    onTap: widget.onSelectAll,
                   ),
-                _treeHeader(
-                  '自定义分类',
-                  _customExpanded,
-                  () => setState(() => _customExpanded = !_customExpanded),
-                ),
-                if (_customExpanded)
-                  if (customs.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(44, 8, 16, 8),
-                      child: Text('暂无自定义分类'),
-                    )
-                  else
-                    ...customs.map(
+                  _treeHeader(
+                    '分类',
+                    _categoryExpanded,
+                    () =>
+                        setState(() => _categoryExpanded = !_categoryExpanded),
+                  ),
+                  if (_categoryExpanded)
+                    ...builtIns.map(
                       (category) => _categoryItem(category, depth: 1),
                     ),
-              ],
+                  _treeHeader(
+                    '自定义分类',
+                    _customExpanded,
+                    () => setState(() => _customExpanded = !_customExpanded),
+                  ),
+                  if (_customExpanded)
+                    if (customs.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(44, 8, 16, 8),
+                        child: Text('暂无自定义分类'),
+                      )
+                    else
+                      ...customs.map(
+                        (category) => _categoryItem(category, depth: 1),
+                      ),
+                ],
+              ),
             ),
-          ),
-          const Divider(height: 1),
-          _treeItem(
-            icon: Icons.delete_outline,
-            label: '回收站',
-            selected: false,
-            onTap: widget.onOpenRecycleBin,
-          ),
-          _treeItem(
-            icon: Icons.folder_open_outlined,
-            label: '管理分类',
-            selected: false,
-            onTap: widget.onOpenCategories,
-          ),
-          const SizedBox(height: 12),
-        ],
+            const Divider(height: 1),
+            _treeItem(
+              icon: Icons.delete_outline,
+              label: '回收站',
+              selected: false,
+              onTap: widget.onOpenRecycleBin,
+            ),
+            _treeItem(
+              icon: Icons.folder_open_outlined,
+              label: '管理分类',
+              selected: false,
+              onTap: widget.onOpenCategories,
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
       ),
     );
   }
